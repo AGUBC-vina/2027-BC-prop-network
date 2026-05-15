@@ -2,7 +2,9 @@
 
 Joins:
     - data/wells_resolved.json   (every xlsx row, with DWR site_code)
-    - data/thresholds_2022.json  (MT/MO/IM-2027 carried from 2022 GSP)
+    - data/thresholds.json       (MT/MO/IM-2027 for all 28 2027 RMS wells:
+                                  7 "2022 GSP" carry-overs + 21 "2022 Mirror"
+                                  baselines computed by scripts/compute_thresholds.py)
 
 Output schema (one element per well in the xlsx):
     well_name, swn, site_code, mgmt_area_full, mgmt_area, well_depth,
@@ -11,14 +13,16 @@ Output schema (one element per well in the xlsx):
     monitor_freq, multi_completion, gse, rpe, screen_intervals,
     butte_co_reasoning,
     bbgm_loc_id, bbgm_aqu_layer, bbgm_calib_resid_ft, bbgm_source,
-    mt_ft, mo_ft, im_2027_ft   (only set when carried over from 2022)
+    mt_ft, mo_ft, im_2027_ft,
+    threshold_source     ("2022 GSP" | "2022 Mirror" | null for non-RMS)
+    threshold_low_data   (true if <3 drought-window readings)
 """
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WELLS_JSON = ROOT / "data" / "wells_resolved.json"
-THRESH_JSON = ROOT / "data" / "thresholds_2022.json"
+THRESH_JSON = ROOT / "data" / "thresholds.json"
 OUT = ROOT / "js" / "wells-data.js"
 
 MA_SHORT = {
@@ -65,6 +69,8 @@ def main():
             "mt_ft": thresh.get("mt_ft"),
             "mo_ft": thresh.get("mo_ft"),
             "im_2027_ft": thresh.get("im_2027_ft"),
+            "threshold_source": thresh.get("source") if thresh else None,
+            "threshold_low_data": thresh.get("low_drought_data", False) if thresh else False,
         }
         out.append(rec)
 

@@ -26,6 +26,10 @@ venv/
 # Old / scratch workbooks kept locally
 secondary/
 
+# Staff memos drafted in this project are distributed via email — not
+# published to the repo
+memos/
+
 # Cached raw downloads — re-fetchable via scripts/fetch_dwr_measurements.py,
 # scripts/resolve_sites.py, and the B118 ArcGIS REST query documented in
 # README.md. The full state-wide stations.csv (~8 MB) and bulk DWR downloads

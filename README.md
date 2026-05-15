@@ -207,6 +207,103 @@ they come back into scope:
 If a future workbook revision adds more RMS wells right next to existing
 ones (so cell shapes get awkward), revisit the Chico-style dissolve.
 
+## MT / MO / IM-2027 threshold methodology
+
+The dashboard shows Sustainable Management Criteria (SMC) threshold lines on
+every 2027 RMS well's hydrograph. Values come from one of two sources, both
+expressed as **groundwater elevation in ft msl** (not depth-below-RPE):
+
+### Source 1 — "2022 GSP" (adopted, 7 wells)
+
+These are the **Minimum Threshold (MT)**, **Measurable Objective (MO)**, and
+**Interim Milestone for 2027 (IM-2027)** values carried over **unchanged**
+from the 2022 Vina GSP for the seven wells that are in both the 2022 and
+2027 RMS networks. Rendered with **dashed** lines in §5.3 hydrographs and
+labeled with the "GSP-adopted MT/MO" pill in the §5.3 table.
+
+| Well | MT | MO | IM-2027 |
+|---|---|---|---|
+| 22N01W05M001M | 31 | 115 | 116 |
+| 23N01E07H001M | 72 | 136 | 140 |
+| 23N01E33A001M | 72 | 125 | 128 |
+| 23N01W36P001M | 45 | 108 | 110 |
+| 23N02W25C001M | 50 | 130 | 130 |
+| 20N02E24C001M | 18 | 77 | 81 |
+| 21N02E18C003M | 65 | 130 | 132 |
+
+### Source 2 — "2022 Mirror" (baseline pending GSA review, 21 wells)
+
+The other 21 wells in the 2027 RMS network were not RMS wells in 2022, so
+they have no carry-over GSP values. To give every polygon a usable baseline
+in the dashboard pending formal GSA action, this build computes
+**MT / MO / IM-2027** by mirroring the empirical pattern of the seven
+already-adopted thresholds.
+
+> **Proposed values mirror the empirical pattern of the adopted 2022
+> thresholds (MT ≈ 70 ft below drought minimum, MO ≈ drought minimum,
+> IM ≈ MO + 2 ft); formal derivation pending.**
+
+Rendered with **dotted** lines in §5.3 hydrographs and labeled with the
+"2022 mirror MT/MO" pill in the §5.3 table.
+
+**Formulas** (all in ft msl, rounded to nearest 1 ft):
+
+```
+drought_min = min GWE recorded during 2012-2016 + 2020-2022 drought windows
+              (DWR Periodic Measurements, all QA flags)
+
+MT_ft       = round(drought_min − 70)
+MO_ft       = round(drought_min)
+IM_2027_ft  = round(MO + 2)
+```
+
+**Why these coefficients?** Empirically, across the 7 adopted-threshold
+wells: MT_22 sits a mean of −68.5 ft (median −66 ft) below `drought_min`;
+MO_22 sits within ±6 ft of `drought_min` (mean offset effectively zero);
+IM_22 sits a mean of +2.3 ft above MO_22. The Mirror formulas round these
+to clean coefficients (−70 / 0 / +2).
+
+### Caveats
+
+The Mirror methodology is a defensible interim baseline, not an adopted
+SMC. Specific limitations to flag in any external use:
+
+- **No traceable derivation document for the 2022 GSP values.** AGUBC,
+  Butte County, and Vina GSA staff have searched for the methodology memo
+  that drove the original 2022 MT/MO/IM values; no documentation has
+  surfaced (it may have lived with a former consultant). The Mirror
+  approach is the most faithful empirical reconstruction available.
+- **All 21 Mirror wells have abundant drought-window data** (minimum 14
+  readings, most have 30+; nine continuous-logger wells have 1,000+
+  readings during the 2012-16 / 2020-22 windows). No well in the 2027
+  network triggers a low-drought-data flag. If a future RMS swap brings
+  in a well with <3 drought-window readings, the threshold for that well
+  should be flagged in the dashboard and reviewed before being plotted.
+- **One MT value is below mean sea level** — `21N01E13L004M` MT = −11 ft
+  msl. This is physically valid: its drought minimum is +59 ft msl with
+  a 353-ft-deep well that bottoms well below sea level, so −11 ft msl
+  is ~70 ft above the well bottom. Reviewers should confirm the value
+  visually but it is not a computational error.
+- **The Mirror is NOT a request for GSA approval.** Adopted MT/MO/IM
+  remain the 2022 GSP values until the GSA formally updates them in
+  the 2027 GSP cycle. The Mirror exists solely to give the dashboard
+  a complete set of comparison lines so every polygon's hydrograph can
+  be evaluated in the same visual framework.
+
+### Rebuilding
+
+```bash
+python3 scripts/compute_thresholds.py          # -> data/thresholds.json
+python3 scripts/build_wells_js.py              # -> js/wells-data.js
+python3 scripts/update_workbook_thresholds.py  # -> appends MT/MO/IM/Source columns to xlsx
+```
+
+The workbook now carries four trailing columns (W–Z) — `MT_ft`, `MO_ft`,
+`IM_2027_ft`, `Threshold_Source` — populated for all 28 RMS wells, with
+2022 GSP rows shaded light blue and 2022 Mirror rows shaded warm cream.
+
+---
+
 ## Data sources
 
 | Layer | Source | Endpoint |

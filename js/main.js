@@ -481,19 +481,22 @@
         here.push(tIdx++);
       }
 
-      // Per-well thresholds for 2027 RMS wells (only when present).
-      // The 2022 GSP threshold values (mt_ft, mo_ft, im_2027_ft) are stored
-      // as groundwater ELEVATIONS in ft msl — they are NOT depth-below-RPE.
-      // So MO (target operational level) plots HIGH on the chart and MT
-      // (the worst-case minimum allowed level) plots much LOWER.
+      // Per-well thresholds for 2027 RMS wells.
+      // Values are groundwater ELEVATIONS in ft msl, NOT depth-below-RPE.
+      // Two sources are distinguished in the legend and line style:
+      //   "2022 GSP"    — adopted carry-over (dashed, solid name)
+      //   "2022 Mirror" — empirical baseline pending GSA review
+      //                   (dotted line, "(2022 mirror)" suffix in legend)
       if (w.is_2027_gwl_rms) {
         const gse = w.gse != null ? +w.gse : null;
-        const addThr = (val, label, lineColor, dash) => {
+        const isMirror = w.threshold_source === "2022 Mirror";
+        const sourceSuffix = isMirror ? " (2022 mirror)" : "";
+        const addThr = (val, label, lineColor, dashAdopted, dashMirror) => {
           if (val == null) return;
           let y, unitLabel;
           if (isDtw) {
             if (gse == null) return;
-            y = gse - val;                  // GWE in ft msl -> depth below GSE
+            y = gse - val;
             unitLabel = `${y.toFixed(1)} ft below GSE`;
           } else {
             y = val;
@@ -503,16 +506,18 @@
             x: ["1980-01-01", new Date().toISOString().slice(0, 10)],
             y: [y, y],
             mode: "lines", type: "scatter",
-            name: `${w.swn} ${label}: ${unitLabel}`,
-            line: { color: lineColor, width: 1.6, dash },
-            hovertemplate: `${w.swn} ${label}: ${unitLabel}<extra></extra>`,
+            name: `${w.swn} ${label}: ${unitLabel}${sourceSuffix}`,
+            line: { color: lineColor, width: 1.6, dash: isMirror ? dashMirror : dashAdopted },
+            hovertemplate: `${w.swn} ${label}${sourceSuffix}: ${unitLabel}<extra></extra>`,
             visible,
           });
           here.push(tIdx++);
         };
-        addThr(w.mo_ft, "MO", "#2a7", "dash");
-        addThr(w.mt_ft, "MT", "#c00", "dash");
-        addThr(w.im_2027_ft, "IM-2027", "#6a3aa1", "dot");
+        // MO and MT: adopted=dash, mirror=dot
+        addThr(w.mo_ft, "MO", "#2a7", "dash", "dot");
+        addThr(w.mt_ft, "MT", "#c00", "dash", "dot");
+        // IM-2027 keeps dot in both modes (matches existing convention)
+        addThr(w.im_2027_ft, "IM-2027", "#6a3aa1", "dot", "dot");
       }
       traceIndices[w.swn] = here;
     });
@@ -653,6 +658,15 @@
       const nestedPill = nC > 1
         ? ` <span class="pill pill-nested" title="This site has ${nC} wells screened at different depths.">Nested ×${nC}</span>`
         : "";
+      let thresholdPill = "";
+      if (w.is_2027_gwl_rms && w.threshold_source) {
+        const cls = w.threshold_source === "2022 GSP" ? "pill-thr-gsp" : "pill-thr-mirror";
+        const label = w.threshold_source === "2022 GSP" ? "GSP-adopted MT/MO" : "2022 mirror MT/MO";
+        const tip = w.threshold_source === "2022 GSP"
+          ? "Thresholds carried over unchanged from the adopted 2022 Vina GSP."
+          : "Baseline thresholds derived from the empirical 2022 GSP pattern (MT = drought_min − 70 ft, MO = drought_min, IM = MO + 2 ft). Pending GSA review.";
+        thresholdPill = ` <span class="pill ${cls}" title="${tip}">${label}</span>`;
+      }
       const bcReason = (w.butte_co_reasoning || "").trim();
       // Show BC reasoning for ANY well that has it (not just RMS).
       // Use the well's SWN explicitly in the label so it's unambiguous which
@@ -669,7 +683,7 @@
             <input type="checkbox" data-well-toggle data-swn="${w.swn}" ${checked}>
           </td>
           <td class="well-name-cell" style="color:${color};">
-            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}
+            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}${thresholdPill}
           </td>
           <td>${rmsPill}</td>
           <td>${contPill}</td>
