@@ -10,10 +10,10 @@
   /* -------------- polygon-method state --------------------------------- */
   // Either "single" (one Voronoi diagram clipped to the Vina Subbasin) or
   // "three_zone" (three independent tessellations, one per management area).
-  let polygonMethod = "single";
-  let RMS_POLYGONS = (typeof RMS_POLYGONS_SINGLE !== "undefined")
-    ? RMS_POLYGONS_SINGLE
-    : (typeof RMS_POLYGONS_THREE_ZONE !== "undefined" ? RMS_POLYGONS_THREE_ZONE : []);
+  let polygonMethod = "three_zone";
+  let RMS_POLYGONS = (typeof RMS_POLYGONS_THREE_ZONE !== "undefined")
+    ? RMS_POLYGONS_THREE_ZONE
+    : (typeof RMS_POLYGONS_SINGLE !== "undefined" ? RMS_POLYGONS_SINGLE : []);
 
   /* -------------- palette ------------------------------------------------ */
   const MA_COLORS = {
@@ -252,6 +252,12 @@
       </div>`;
   }
 
+  // Invisible halo radius added around each visible marker, so near-miss
+  // clicks still open the popup instead of falling through to the polygon
+  // underneath. ~10px gives a comfortable target without overlapping
+  // neighboring wells in the basin.
+  const HIT_PAD_PX = 10;
+
   function makeWellMarker(w) {
     const lat = w.latitude, lng = w.longitude;
     if (lat == null || lng == null) return null;
@@ -263,10 +269,18 @@
     const style = nC > 1
       ? { ...baseStyle, radius: baseStyle.radius + 1, color: "#c2410c", weight: 2 }
       : baseStyle;
-    const m = L.circleMarker([lat, lng], style);
-    m.bindPopup(buildWellPopup(w), { maxWidth: 340 });
-    m.well = w;
-    return m;
+    const visible = L.circleMarker([lat, lng], { ...style, pane: "wellsPane" });
+    const hit = L.circleMarker([lat, lng], {
+      radius: style.radius + HIT_PAD_PX,
+      opacity: 0, fillOpacity: 0, weight: 0,
+      interactive: true, bubblingMouseEvents: false,
+      pane: "wellsPane",
+    });
+    visible.bindPopup(buildWellPopup(w), { maxWidth: 340 });
+    hit.on("click", () => visible.openPopup());
+    const group = L.featureGroup([hit, visible]);
+    group.well = w;
+    return group;
   }
 
   /* For nested sites — one marker that opens a popup listing all completions */
@@ -278,7 +292,13 @@
     const baseStyle = hasRms
       ? { radius: 11, fillColor: "#1e40af", color: "#c2410c", weight: 2.5, opacity: 1, fillOpacity: 0.95 }
       : { radius: 7,  fillColor: "#888",    color: "#c2410c", weight: 2,   opacity: 1, fillOpacity: 0.9 };
-    const m = L.circleMarker([lat, lng], baseStyle);
+    const visible = L.circleMarker([lat, lng], { ...baseStyle, pane: "wellsPane" });
+    const hit = L.circleMarker([lat, lng], {
+      radius: baseStyle.radius + HIT_PAD_PX,
+      opacity: 0, fillOpacity: 0, weight: 0,
+      interactive: true, bubblingMouseEvents: false,
+      pane: "wellsPane",
+    });
     // Tab through each completion in the popup
     const tabs = wells.map((w, i) => `<button data-tab="${i}" class="nested-tab" style="margin-right:4px;padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid #c7d6f5;background:${i===0?'#1e40af':'#f0f5ff'};color:${i===0?'#fff':'#1e40af'};border-radius:3px;">${w.well_name}</button>`).join("");
     const tabsHtml = `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #eee;"><b>Nested site (×${wells.length}):</b><br><div style="margin-top:6px;">${tabs}</div></div>`;
@@ -294,9 +314,11 @@
       });
     }
     renderTab(0);
-    m.bindPopup(popupEl, { maxWidth: 340 });
-    m.wells = wells;
-    return m;
+    visible.bindPopup(popupEl, { maxWidth: 340 });
+    hit.on("click", () => visible.openPopup());
+    const group = L.featureGroup([hit, visible]);
+    group.wells = wells;
+    return group;
   }
 
   function styleForPolygon(poly, selected) {
@@ -320,7 +342,7 @@
     polygonRefs = {};
     polygonLayer.clearLayers();
     RMS_POLYGONS.forEach((poly) => {
-      const lp = L.polygon(poly.rings, styleForPolygon(poly, false));
+      const lp = L.polygon(poly.rings, { ...styleForPolygon(poly, false), pane: "polygonsPane" });
       lp.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
         selectPolygon(poly.zone_label);
@@ -360,6 +382,15 @@
   function renderMap() {
     map = L.map("map", { preferCanvas: false, zoomControl: true }).setView([39.74, -121.86], 11);
     setBasemap("carto");
+
+    // Dedicated panes so well markers always sit above Thiessen polygons
+    // regardless of layer add/remove order or setStyle calls. Stacking is
+    // pinned via CSS z-index, not SVG DOM order — this is what makes the
+    // hit halos reliable when the user toggles polygon methods.
+    map.createPane("polygonsPane");
+    map.getPane("polygonsPane").style.zIndex = 400;
+    map.createPane("wellsPane");
+    map.getPane("wellsPane").style.zIndex = 450;
 
     // Vina Subbasin boundary (always shown)
     basinLayer = L.geoJSON(VINA_BOUNDARY, {
