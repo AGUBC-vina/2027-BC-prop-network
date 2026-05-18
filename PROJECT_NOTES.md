@@ -64,7 +64,7 @@ supplemental but produce no time-series data.
 
 ### 3. Built 28 Voronoi polygons clipped to the Vina Subbasin (10 min)
 
-`scripts/build_polygons.py`:
+`scripts/build_polygons_single.py` (Method A — the original):
 - Reads the 28 wells where `2027 GWL RMS? = Yes` from `wells_resolved.json`
 - Pulls the Vina Subbasin polygon via DWR ArcGIS REST in Esri JSON form
   (the `f=geojson` variant intermittently throws on this endpoint), then
@@ -78,10 +78,11 @@ supplemental but produce no time-series data.
 - Asserts exactly 28 cells; aborts on any open region or empty
   intersection (sanity guard against future workbook drift)
 
-**Output:** `data/vina_2027_thiessen.geojson` (real FeatureCollection)
-and `js/polygons-data.js` (Leaflet-friendly `[lat,lng]` rings). Total
-clipped area ≈ 184,400 acres, within 0.3% of the published Vina Subbasin
-area — confirms the projection roundtrip is clean.
+**Output:** `data/vina_2027_thiessen_single.geojson` (FeatureCollection)
+and `js/polygons-data-single.js` (Leaflet-friendly `[lat,lng]` rings).
+Total clipped area ≈ 184,400 acres, within 0.3% of the published Vina
+Subbasin area — confirms the projection roundtrip is clean. (See
+Step 10 below for the parallel three-zone tessellation added later.)
 
 ### 4. Pulled fresh DWR measurements via CKAN datastore API (~3 min)
 
@@ -225,6 +226,53 @@ A separate 2-3 page AGUBC Staff Memorandum
 for Board distribution. The memo stays out of git (`memos/` in
 `.gitignore`); it's distributed by email.
 
+### 10. Added a three-zone tessellation alongside the original (45 min)
+
+Followed up on a user request to add a per-management-area Voronoi
+alternative — one independent Voronoi diagram per management area
+(01-Vina-North / 02-Vina-Chico / 03-Vina-South), each clipped to its
+own area polygon — so cells **do not cross management-area lines**.
+
+Why this matters: each Vina management area carries distinct SMC, so a
+polygon system where cell membership is unambiguous and constrained by
+mgmt-area lines is easier to defend in the 2027 GSP. The single-basin
+Voronoi (which is more permissive — it lets cells span management
+areas) is kept as a comparison view.
+
+**Implementation pattern:** two parallel build scripts, two parallel
+data outputs, one dashboard toggle.
+
+- `scripts/build_polygons_single.py` (recovered from `main`) →
+  `js/polygons-data-single.js` (`const RMS_POLYGONS_SINGLE`)
+- `scripts/build_polygons_three_zone.py` (new) →
+  `js/polygons-data-three-zone.js` (`const RMS_POLYGONS_THREE_ZONE`)
+- `index.html` loads both; `js/main.js` keeps a swappable `RMS_POLYGONS`
+  reference; a new `<select id="picker-poly-method">` in the §5.2 map
+  controls flips between them with instant redraw + §5.3/§5.4 re-sync.
+- The three-zone script does **spatial zone assignment** (geometric
+  containment in the area polygons) rather than trusting the workbook
+  mgmt-area tag. Each feature preserves `workbook_mgmt_area` +
+  `reassigned: true|false` so any disagreement is auditable rather than
+  silent. v8 surfaces exactly one disagreement: **`23N01E33A001M`** is
+  tagged 01-Vina-North in the workbook but physically sits in
+  02-Vina-Chico. In three-zone mode this well anchors a ~1,090-ac cell
+  in Chico instead of an ~11,050-ac cell in North.
+- Coverage check (three-zone): stitched 28 cells = exact union of three
+  area polygons, gap −0.0 ac.
+
+**Cache-busting side-quest.** When testing the toggle, the browser kept
+loading a stale cached `main.js` after rebuilds — the file mtime
+changed in `/tmp/vina-dash/js/` but the unsuffixed `<script src="js/main.js">`
+in index.html re-used the cached version. Fixed by appending `?v=3`
+query strings to every script tag and adding a `cache-control: no-cache`
+meta. Future rebuilds that change JS shape should bump the `?v=N` to
+guarantee a fresh load.
+
+Branch: `three-zone-thiessen`; PR
+[#1](https://github.com/AGUBC-vina/2027-BC-prop-network/pull/1).
+Default behavior on the dashboard is **Single tessellation** so nothing
+visually changes for existing reviewers until they explicitly toggle.
+
 ---
 
 ## Key methodological decisions
@@ -232,6 +280,8 @@ for Board distribution. The memo stays out of git (`memos/` in
 | Decision | What we chose | Why |
 |---|---|---|
 | Polygon framework | 28 Voronoi cells, one per 2027 RMS well | No Chico-dissolve; each RMS gets its own cell by construction (no override logic needed) |
+| Polygon-method choice | **Two parallel tessellations, dashboard toggle** (single basin-wide + three-zone per mgmt area) | Lets reviewers see both: the original single-basin view (simpler, basin-wide neighborhoods) and the SMC-defensible three-zone view (each mgmt area is a closed system). Same 28 SWNs key both sets, so switching preserves the §5.3 selection |
+| Three-zone zone assignment | Spatial containment (geometric truth) — workbook mgmt-area tag preserved as audit field | One v8 well (`23N01E33A001M`) is reassigned vs. the workbook tag; making this an explicit on-the-record boundary call is more defensible than a silent override or trusting a possibly-stale tag |
 | Voronoi projection CRS | NAD-83 California Albers (EPSG:3310) | Equal-area metric; matches B118 working CRS so polygon areas line up with DWR figures |
 | Voronoi bounding | 4 anchor points 10× bbox outside basin | scipy emits open rays for hull sites; anchors guarantee bounded cells, discarded after computation |
 | Clip boundary | DWR B118 5-021.57 outer polygon | Standard, downloadable, ~184k acres |
@@ -259,7 +309,8 @@ for Board distribution. The memo stays out of git (`memos/` in
 ├── .gitignore                         excludes .claude/, secondary/, raw/, memos/
 ├── js/
 │   ├── wells-data.js                  79 wells, joined to DWR site_code + thresholds
-│   ├── polygons-data.js               28 Thiessen polygons (Leaflet rings)
+│   ├── polygons-data-single.js        28 single-basin Thiessen polygons (default)
+│   ├── polygons-data-three-zone.js    28 three-zone Thiessen polygons (toggle in §5.2)
 │   ├── measurements-data.js           227,647 DWR GWL records (15 MB)
 │   ├── basin-boundary.js              Vina Subbasin GeoJSON
 │   ├── readme-data.js                 README.md bundled as `const README_MD`
@@ -268,7 +319,8 @@ for Board distribution. The memo stays out of git (`memos/` in
 │   ├── wells_resolved.json            Excel rows joined to DWR Stations
 │   ├── thresholds_2022.json           7 wells carried from 2022 GSP (kept for provenance)
 │   ├── thresholds.json                All 28 RMS wells — adopted + mirror, with source flag
-│   └── vina_2027_thiessen.geojson     28 polygons as proper GeoJSON
+│   ├── vina_2027_thiessen_single.geojson     Single-basin polygons as GeoJSON
+│   └── vina_2027_thiessen_three_zone.geojson Three-zone polygons as GeoJSON
 ├── raw/                               (gitignored) cached source downloads
 │   ├── stations.csv                   DWR CKAN Stations
 │   ├── vina_subbasin.geojson          B118 5-021.57 boundary
@@ -280,7 +332,8 @@ for Board distribution. The memo stays out of git (`memos/` in
 │   └── BC_Network_2026_v8.backup-before-thresholds.xlsx
 └── scripts/
     ├── resolve_sites.py               xlsx + DWR Stations → wells_resolved.json
-    ├── build_polygons.py              Voronoi tessellation clipped to basin
+    ├── build_polygons_single.py       Method A — single Voronoi clipped to Vina basin
+    ├── build_polygons_three_zone.py   Method B — three Voronois, one per management area
     ├── fetch_dwr_measurements.py      DWR CKAN → measurements-data.js
     ├── compute_thresholds.py          7 adopted + 21 mirror → thresholds.json
     ├── build_wells_js.py              wells_resolved + thresholds → wells-data.js
@@ -325,7 +378,8 @@ pip3 install --user openpyxl pandas geopandas pyproj scipy shapely requests
 
 # Refresh the full pipeline (top-to-bottom)
 python3 scripts/resolve_sites.py               # → data/wells_resolved.json
-python3 scripts/build_polygons.py              # → data/vina_2027_thiessen.geojson + js/polygons-data.js
+python3 scripts/build_polygons_single.py       # → data/vina_2027_thiessen_single.geojson + js/polygons-data-single.js
+python3 scripts/build_polygons_three_zone.py   # → data/vina_2027_thiessen_three_zone.geojson + js/polygons-data-three-zone.js
 python3 scripts/fetch_dwr_measurements.py      # → js/measurements-data.js (~3 min, 15 MB)
 python3 scripts/compute_thresholds.py          # → data/thresholds.json
 python3 scripts/build_wells_js.py              # → js/wells-data.js
