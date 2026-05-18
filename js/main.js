@@ -1,8 +1,19 @@
 // Vina Subbasin 2027 RMS Network Dashboard — UI logic.
-// Loads WELLS, RMS_POLYGONS, MEASUREMENTS, VINA_BOUNDARY as globals.
+// Loads WELLS, RMS_POLYGONS_SINGLE, RMS_POLYGONS_THREE_ZONE,
+// MEASUREMENTS, VINA_BOUNDARY as globals. The active polygon set is
+// chosen by the §5.2 "Polygon method" picker; `RMS_POLYGONS` is a
+// dashboard-local alias that gets swapped when the picker changes.
 
 (function () {
   "use strict";
+
+  /* -------------- polygon-method state --------------------------------- */
+  // Either "single" (one Voronoi diagram clipped to the Vina Subbasin) or
+  // "three_zone" (three independent tessellations, one per management area).
+  let polygonMethod = "single";
+  let RMS_POLYGONS = (typeof RMS_POLYGONS_SINGLE !== "undefined")
+    ? RMS_POLYGONS_SINGLE
+    : (typeof RMS_POLYGONS_THREE_ZONE !== "undefined" ? RMS_POLYGONS_THREE_ZONE : []);
 
   /* -------------- palette ------------------------------------------------ */
   const MA_COLORS = {
@@ -302,18 +313,12 @@
     };
   }
 
-  function renderMap() {
-    map = L.map("map", { preferCanvas: false, zoomControl: true }).setView([39.74, -121.86], 11);
-    setBasemap("carto");
-
-    // Vina Subbasin boundary (always shown)
-    basinLayer = L.geoJSON(VINA_BOUNDARY, {
-      style: { color: "#222", weight: 2.2, fill: false, dashArray: "4,4", opacity: 0.85 },
-      interactive: false,
-    }).addTo(map);
-
-    // Thiessen polygons (always interactive even when shading is off so clicks still work)
-    polygonLayer = L.layerGroup();
+  // (Re)build the Leaflet polygon layer from whichever set is active.
+  // Clears `polygonRefs` and `polygonLayer` first so this can be called
+  // both at initial render and when the method picker flips.
+  function buildPolygonLayer() {
+    polygonRefs = {};
+    polygonLayer.clearLayers();
     RMS_POLYGONS.forEach((poly) => {
       const lp = L.polygon(poly.rings, styleForPolygon(poly, false));
       lp.on("click", (e) => {
@@ -329,6 +334,42 @@
       polygonRefs[poly.zone_label] = { lp, poly };
       polygonLayer.addLayer(lp);
     });
+  }
+
+  // Swap the active polygon set (single ↔ three-zone). Rebuilds the map
+  // polygon layer, re-populates the §5.3 picker, and re-selects the
+  // previously-selected SWN if it still exists in the new set (it will:
+  // both sets share the same 28 RMS wells, only the cell geometries and
+  // mgmt-area attributions differ).
+  function setPolygonMethod(method) {
+    if (method !== "single" && method !== "three_zone") return;
+    if (typeof RMS_POLYGONS_SINGLE === "undefined"
+        || typeof RMS_POLYGONS_THREE_ZONE === "undefined") return;
+    polygonMethod = method;
+    RMS_POLYGONS = method === "three_zone" ? RMS_POLYGONS_THREE_ZONE : RMS_POLYGONS_SINGLE;
+    const keep = selectedPoly;
+    buildPolygonLayer();
+    populatePolygonPicker();
+    if (keep && RMS_POLYGONS.find((p) => p.zone_label === keep)) {
+      selectPolygon(keep);
+    } else if (RMS_POLYGONS.length) {
+      selectPolygon(RMS_POLYGONS[0].zone_label);
+    }
+  }
+
+  function renderMap() {
+    map = L.map("map", { preferCanvas: false, zoomControl: true }).setView([39.74, -121.86], 11);
+    setBasemap("carto");
+
+    // Vina Subbasin boundary (always shown)
+    basinLayer = L.geoJSON(VINA_BOUNDARY, {
+      style: { color: "#222", weight: 2.2, fill: false, dashArray: "4,4", opacity: 0.85 },
+      interactive: false,
+    }).addTo(map);
+
+    // Thiessen polygons (always interactive even when shading is off so clicks still work)
+    polygonLayer = L.layerGroup();
+    buildPolygonLayer();
     polygonLayer.addTo(map);
 
     // Marker layers (2 tiers only: 2027 RMS + supplemental); nested completions
@@ -371,6 +412,7 @@
       if (e.target.checked) suppLayer.addTo(map); else map.removeLayer(suppLayer);
     });
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
+    $("#picker-poly-method").addEventListener("change", (e) => setPolygonMethod(e.target.value));
   }
 
   /* -------------- 5.3 picker & hydrograph ------------------------------- */
@@ -855,7 +897,7 @@
   }
 
   /* -------------- bootstrap --------------------------------------------- */
-  document.addEventListener("DOMContentLoaded", () => {
+  function bootstrap() {
     renderKPIs();
     renderMap();
     populatePolygonPicker();
@@ -868,5 +910,10 @@
       const first = RMS_POLYGONS.slice().sort((a, b) => a.zone_label.localeCompare(b.zone_label))[0];
       selectPolygon(first.zone_label);
     }
-  });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootstrap);
+  } else {
+    bootstrap();
+  }
 })();
