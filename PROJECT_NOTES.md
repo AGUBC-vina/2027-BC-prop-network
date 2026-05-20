@@ -1,7 +1,7 @@
 # Project Notes — What We Did
 
 A working-notes file recording **what was built, why, and how** for the
-Vina Subbasin 2027 RMS Network Dashboard (28 Voronoi polygons, hydrograph
+Vina Subbasin 2027 RMS Network Dashboard (26-polygon three-zone tessellation (27 RMS sites, 35 well completions), hydrograph
 + representativeness analysis, MT/MO/IM thresholds). The README is the
 audience-facing methodology document; this file is the project history.
 
@@ -62,7 +62,7 @@ in either the Periodic GWL or Continuous GWL Stations datasets, and
 neither is in the 2027 RMS network — they appear on the map as
 supplemental but produce no time-series data.
 
-### 3. Built 28 Voronoi polygons clipped to the Vina Subbasin (10 min)
+### 3. Built 26-polygon three-zone tessellation (27 RMS sites, 35 well completions) clipped to the Vina Subbasin (10 min)
 
 `scripts/build_polygons_single.py` (Method A — the original):
 - Reads the 28 wells where `2027 GWL RMS? = Yes` from `wells_resolved.json`
@@ -335,6 +335,51 @@ parallel update to consume the new shape — flagged for follow-up.
 Branch: `2027-network-revision`; bump cache-buster to `?v=8`. Default
 polygon method on the dashboard remains **three-zone** (set as default
 in the previous session).
+
+### 12. 2026-05-20 clipping refinement — no N-cells in Chico, slivers absorbed
+
+Tovey reviewed step 11 and asked for a tighter geometric story:
+
+- **No North polygon should overlap with the Chico mgmt area.** The
+  3 N RMS wells whose physical location is inside Chico
+  (`22N01E09B001M`, `22N01E20K001M`, `23N01E33A001M`) keep their own
+  §5.3 picker entries, but their Thiessen cells are clipped to NOT
+  include Chico territory — the cells therefore sit *north* of the
+  well markers (in N proper), wherever the 13-seed Voronoi gives them
+  territory closer to that well than to any other N seed.
+- **Slivers along the north Chico boundary and at the basin
+  W/E edges get absorbed.** Earlier builds had thin uncovered
+  bands between the mgmt-area polygons (the source mgmt-area
+  GeoJSON does not perfectly tile the basin). Computing the
+  Voronoi directly over the clip domain `(Basin − Chico − South)`
+  with all 13 N seeds means every point in that region is assigned
+  to its nearest seed — no orphan slivers.
+- **Three Chico-located N RMS wells.** Both reassigned wells
+  (`22N01E09B001M`, `22N01E20K001M`) and `23N01E33A001M` (workbook-
+  tagged North but spatially in Chico) fall into this case. The
+  dashboard popup now calls out the relationship: "physical location
+  inside the Chico mgmt area; RMS for the North network. The Thiessen
+  cell sits north of this well (Chico territory is clipped away)."
+- **Single tessellation revised.** Updated `build_polygons_single.py`
+  to dedupe seeds by `(lat, lng)` so the CWSCH 7-nest and 22N01E28J
+  3-nest each collapse to one Voronoi seed. Output: 27 cells (was
+  28 before the revision). Each nested-site cell carries
+  `is_aggregate: true` and `rms_well_swns` so the dashboard's
+  `polygonWells()` helper finds all completions at that site.
+- **KPI relabeled.** The "2027 GWL RMS" KPI now counts distinct
+  lat/lng sites (= 27) instead of `is_2027_gwl_rms` entries (= 35).
+  Matches Tovey's framing of "27 RMS wells" (the 10 nested Chico
+  completions collapsing to 2 sites).
+
+Coverage after this change (three-zone):
+- 13 N cells total ~72,000 ac (= `Basin − Chico − South`)
+- Chico aggregate ~29,700 ac (full mgmt area)
+- 12 S cells total ~83,000 ac (= South mgmt area)
+- N-Chico overlap: **0 ac**
+- Basin total ~184,400 ac, within rounding
+
+Branch: `2027-network-revision` (continuing); cache-buster bumped to
+`?v=10` for polygons + main.js.
 
 ---
 

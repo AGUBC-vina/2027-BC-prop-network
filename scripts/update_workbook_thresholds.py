@@ -9,7 +9,9 @@ new columns after the existing data:
     Y: IM_2027_ft
     Z: Threshold_Source     ("2022 GSP" | "2022 Mirror" | blank for non-RMS)
 
-Values are populated for the 28 2027 RMS wells; blank for the other 51.
+Values are populated for the 30 thresholded 2027 RMS completions (out of
+35 flagged is_2027_gwl_rms); 5 supplemental Chico nested completions and
+the 44 non-RMS rows are left blank.
 """
 import json
 import shutil

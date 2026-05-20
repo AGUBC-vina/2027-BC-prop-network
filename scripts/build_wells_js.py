@@ -2,9 +2,12 @@
 
 Joins:
     - data/wells_resolved.json   (every xlsx row, with DWR site_code)
-    - data/thresholds.json       (MT/MO/IM-2027 for all 28 2027 RMS wells:
-                                  7 "2022 GSP" carry-overs + 21 "2022 Mirror"
-                                  baselines computed by scripts/compute_thresholds.py)
+    - data/thresholds.json       (MT/MO/IM-2027 for 30 of the 35 2027 RMS
+                                  completions: 12 "2022 GSP" carry-overs +
+                                  18 "2022 Mirror" baselines computed by
+                                  scripts/compute_thresholds.py; 5 supplemental
+                                  Chico nested completions are unthresholded
+                                  per 2022 GSP convention)
 
 Output schema (one element per well in the xlsx):
     well_name, swn, site_code, mgmt_area_full, mgmt_area, well_depth,
