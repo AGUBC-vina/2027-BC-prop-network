@@ -195,7 +195,95 @@
   }
 
   /* -------------- 5.2 Leaflet map --------------------------------------- */
-  let map, polygonLayer, basinLayer, rms2027Layer, suppLayer;
+  let map, polygonLayer, basinLayer, rms2027Layer, suppLayer, domesticLayer;
+
+  /* -------------- MT sensitivity (domestic wells) ---------------------- */
+  // Slider value (0–30 ft, the amount by which MT is hypothetically raised
+  // for sensitivity analysis). Updated by the §5.3 slider; drives the
+  // sensitivity widget, the hydrograph's "raised MT" line, and the RMS
+  // well popup's adjusted dry count.
+  let mtRaiseFt = 0;
+  // When true, apply the cosmo "one-sided" elevation correction to dry
+  // counts: effective_MT for a domestic well = MT + max(0, well_gse - rms_gse).
+  let elevCorrectionOn = false;
+
+  // Threshold-raise columns shown in the sensitivity table.
+  const SENS_RAISES = [0, 5, 10, 15, 20, 25, 30];
+
+  // Active domestic wells: those flagged include=1 in the cosmo bundle and
+  // with a valid lat/lon, well_bottom_amsl. Cached once at startup.
+  let DOMESTIC_ACTIVE = [];
+  // Per-polygon dictionary: zone_label -> array of active domestic wells
+  // that fall inside that polygon. Cached once at startup.
+  let DOMESTIC_BY_POLYGON = {};
+
+  // Build the active-domestic-wells caches. Called once after data load.
+  function buildDomesticCaches() {
+    if (typeof DOMESTIC_WELLS === "undefined") return;
+    DOMESTIC_ACTIVE = DOMESTIC_WELLS.filter((w) =>
+      w.include === 1 && w.lat != null && w.lon != null && w.well_bottom_amsl != null
+    );
+    DOMESTIC_BY_POLYGON = {};
+    DOMESTIC_ACTIVE.forEach((w) => {
+      const key = w.our_polygon;
+      if (!key) return;
+      (DOMESTIC_BY_POLYGON[key] = DOMESTIC_BY_POLYGON[key] || []).push(w);
+    });
+  }
+
+  // Count dry domestic wells in `wells` (a list of domestic-well records)
+  // at the given polygon MT raised by `raise_ft`. If `elev_correct` is true,
+  // each well's effective MT is raised further by max(0, well_gse - rms_gse).
+  // Returns { dry, total }.
+  function countDryDomestic(wells, mt_ft, rms_gse, raise_ft, elev_correct) {
+    if (mt_ft == null) return { dry: 0, total: 0 };
+    let dry = 0;
+    const baseMT = mt_ft + raise_ft;
+    for (const w of wells) {
+      const gseDelta = (elev_correct && rms_gse != null && w.local_gse != null)
+        ? Math.max(0, w.local_gse - rms_gse) : 0;
+      const effectiveMT = baseMT + gseDelta;
+      if (w.well_bottom_amsl > effectiveMT) dry++;
+    }
+    return { dry, total: wells.length };
+  }
+
+  // Basin-wide dry counts at the given raise. Uses each well's HOME polygon's
+  // MT. For elev-correction, uses each polygon's seed RMS well's GSE.
+  function basinDryCount(raise_ft, elev_correct) {
+    let dry = 0, total = 0;
+    if (typeof RMS_POLYGONS === "undefined") return { dry, total };
+    RMS_POLYGONS.forEach((poly) => {
+      const pgnWells = DOMESTIC_BY_POLYGON[poly.zone_label] || [];
+      if (pgnWells.length === 0) return;
+      const mt_ft = polygonMT(poly);
+      const rms_gse = polygonRmsGSE(poly);
+      const c = countDryDomestic(pgnWells, mt_ft, rms_gse, raise_ft, elev_correct);
+      dry += c.dry;
+      total += c.total;
+    });
+    return { dry, total };
+  }
+
+  // For aggregate polygons (Chico), use the single RMS well's MT.
+  // For per-well polygons, use the seed RMS well's MT.
+  function polygonMT(poly) {
+    const primarySwn = poly.is_aggregate
+      ? (poly.rms_primary_swns || [])[0]
+      : poly.rms_well_swn;
+    if (!primarySwn) return null;
+    const w = WELLS.find((x) => x.swn === primarySwn);
+    return w ? w.mt_ft : null;
+  }
+
+  function polygonRmsGSE(poly) {
+    const primarySwn = poly.is_aggregate
+      ? (poly.rms_primary_swns || [])[0]
+      : poly.rms_well_swn;
+    if (!primarySwn) return null;
+    const w = WELLS.find((x) => x.swn === primarySwn);
+    return w ? (w.gse != null ? +w.gse : null) : null;
+  }
   let basemapLayer = null;
   let polygonRefs = {};   // zone_label -> { leafletPoly, dataPoly }
   let selectedPoly = null;
@@ -280,6 +368,36 @@
     const inheritNote = w.carryover_from
       ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> MT/MO/IM inherited from <code>${w.carryover_from}</code>, the 2022 GSP RMS at this same lat/lng (different completion depth).</div>`
       : "";
+    // Domestic-well dry counts at this RMS well's polygon, both unadjusted
+    // (at original MT) and adjusted (at MT + current slider value).
+    // Looked up live at popup-open time, so the popup reflects whatever the
+    // slider is set to at the moment of opening.
+    let domLine = "";
+    if (w.is_2027_gwl_rms && typeof DOMESTIC_BY_POLYGON !== "undefined") {
+      // Find the polygon for which this well is the (or a) RMS seed.
+      const poly = (typeof RMS_POLYGONS !== "undefined" ? RMS_POLYGONS : []).find(
+        (p) => p.rms_well_swn === w.swn
+          || (p.is_aggregate && (p.rms_primary_swns || []).includes(w.swn))
+      );
+      if (poly) {
+        const polyWells = DOMESTIC_BY_POLYGON[poly.zone_label] || [];
+        if (polyWells.length > 0) {
+          const cAt = countDryDomestic(polyWells, w.mt_ft, w.gse != null ? +w.gse : null, 0, elevCorrectionOn);
+          const cAdj = countDryDomestic(polyWells, w.mt_ft, w.gse != null ? +w.gse : null, mtRaiseFt, elevCorrectionOn);
+          const adjLabel = mtRaiseFt > 0
+            ? `MT + ${mtRaiseFt} ft`
+            : "MT (no slider adjustment)";
+          domLine =
+            `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;">` +
+            `<div><b>Dry domestic wells at MT (${w.mt_ft} ft):</b> ${cAt.dry} of ${cAt.total} (${(100 * cAt.dry / cAt.total).toFixed(0)}%)</div>` +
+            `<div><b>Dry at ${adjLabel}:</b> ${cAdj.dry} of ${cAdj.total} (${(100 * cAdj.dry / cAdj.total).toFixed(0)}%)</div>` +
+            (elevCorrectionOn
+              ? `<div style="color:#888;font-size:11px;">(elevation correction on)</div>`
+              : `<div style="color:#888;font-size:11px;">(elevation correction off)</div>`) +
+            `</div>`;
+        }
+      }
+    }
     return `
       <div style="font-size:12.5px;line-height:1.45;max-width:300px;">
         <div style="font-weight:600;font-size:13px;margin-bottom:4px;">${w.well_name}</div>
@@ -290,6 +408,7 @@
         ${wseLine}
         ${recordLine}
         ${nestedLine}
+        ${domLine}
         <div><b>Well use:</b> ${w.well_use || "—"}</div>
         <div><b>Depth:</b> ${fmt(w.well_depth, 0)} ft</div>
         <div><b>Screen:</b> ${w.screen_intervals || "—"}</div>
@@ -325,7 +444,11 @@
       interactive: true, bubblingMouseEvents: false,
       pane: "wellsPane",
     });
-    visible.bindPopup(buildWellPopup(w), { maxWidth: 340 });
+    // Use function content so the popup re-computes the domestic-well dry
+    // counts (which depend on the slider + elev-correction toggle) every
+    // time the popup is opened. Leaflet 1.x calls the function with the
+    // source layer each time the popup opens.
+    visible.bindPopup(() => buildWellPopup(w), { maxWidth: 340 });
     hit.on("click", () => visible.openPopup());
     // 2022 RMS wells get a small white dot in the middle so reviewers can
     // tell at a glance which wells were already in the prior network.
@@ -496,6 +619,14 @@
     rms2027Layer.addTo(map);
     suppLayer.addTo(map);
 
+    // Domestic-wells overlay (lazily built — 1,253 active markers; uses a
+    // canvas renderer for perf since SVG with 1k+ markers stutters on pan).
+    // Each well is a small gray dot. The marker list is bundled in
+    // js/domestic-wells-data.js as DOMESTIC_WELLS (include=1 only filters
+    // applied at render time). Default: hidden.
+    domesticLayer = buildDomesticLayer();
+    // Not added to map by default; toggled via #tog-domestic below.
+
     // Fit to polygons
     const allBounds = L.featureGroup(Object.values(polygonRefs).map((r) => r.lp)).getBounds();
     map.fitBounds(allBounds, { padding: [20, 20] });
@@ -516,8 +647,41 @@
     $("#tog-supp").addEventListener("change", (e) => {
       if (e.target.checked) suppLayer.addTo(map); else map.removeLayer(suppLayer);
     });
+    $("#tog-domestic").addEventListener("change", (e) => {
+      if (e.target.checked) domesticLayer.addTo(map); else map.removeLayer(domesticLayer);
+    });
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
     $("#picker-poly-method").addEventListener("change", (e) => setPolygonMethod(e.target.value));
+  }
+
+  // Build the domestic-wells overlay layer. Canvas-rendered for performance
+  // (1,253 active wells). Color-coded by their assigned 2027 mgmt area so
+  // they're visually grouped without needing a separate marker per area.
+  function buildDomesticLayer() {
+    if (typeof DOMESTIC_WELLS === "undefined") return L.layerGroup();
+    const canvas = L.canvas({ padding: 0.5 });
+    const fillByMA = {
+      "North": "#1f4ee0",
+      "Chico": "#e07b1f",
+      "South": "#2ca02c",
+    };
+    const layer = L.layerGroup();
+    DOMESTIC_WELLS.forEach((w) => {
+      if (w.include !== 1) return;
+      if (w.lat == null || w.lon == null) return;
+      const fill = fillByMA[w.our_mgmt_area] || "#9ca3af";
+      L.circleMarker([w.lat, w.lon], {
+        radius: 2.5,
+        fillColor: fill,
+        fillOpacity: 0.55,
+        color: fill,
+        weight: 0,
+        opacity: 0,
+        renderer: canvas,
+        interactive: false,  // perf: skip event wiring (no click popups)
+      }).addTo(layer);
+    });
+    return layer;
   }
 
   /* -------------- 5.3 picker & hydrograph ------------------------------- */
@@ -596,6 +760,7 @@
     renderHydrograph(poly, wellsInside);
     renderWellDetailTable();
     populateRMSPicker(poly);
+    renderSensitivityTable();
   }
 
   function renderHydrograph(poly, insideWells) {
@@ -674,6 +839,16 @@
         addThr(w.mt_ft, "MT", "#c00", "dash", "dot");
         // IM-2027 keeps dot in both modes (matches existing convention)
         addThr(w.im_2027_ft, "IM-2027", "#6a3aa1", "dot", "dot");
+        // Raised MT (sensitivity slider). Only drawn when slider > 0 and
+        // only for the polygon's seed RMS well so the hydrograph doesn't
+        // accumulate one raised line per well.
+        const isPolySeed = (poly.rms_well_swn === w.swn) ||
+          (poly.is_aggregate && (poly.rms_primary_swns || []).includes(w.swn));
+        if (mtRaiseFt > 0 && w.mt_ft != null && isPolySeed) {
+          addThr(w.mt_ft + mtRaiseFt,
+                 `MT + ${mtRaiseFt} ft (sensitivity)`,
+                 "#ff8c00", "dash", "dash");
+        }
       }
       traceIndices[w.swn] = here;
     });
@@ -1010,8 +1185,65 @@
     $("#scatter-info").textContent = summary;
   }
 
+  /* -------------- §5.3 MT-sensitivity widget wiring -------------------- */
+  function renderSensitivityTable() {
+    if (!currentSelection) return;
+    const poly = currentSelection.poly;
+    const polyMT = polygonMT(poly);
+    const polyGSE = polygonRmsGSE(poly);
+    const polyWells = DOMESTIC_BY_POLYGON[poly.zone_label] || [];
+    const polyTotal = polyWells.length;
+    const polyLabel = poly.is_aggregate
+      ? `Chico polygon (n=${polyTotal})`
+      : `${poly.zone_label} (n=${polyTotal})`;
+
+    // Active column: closest 5-ft step to the slider value
+    const activeRaise = SENS_RAISES.reduce((best, r) =>
+      Math.abs(r - mtRaiseFt) < Math.abs(best - mtRaiseFt) ? r : best, 0);
+
+    const cellHtml = (cnt, total, isActive) => {
+      const pct = total > 0 ? (100 * cnt / total) : 0;
+      return `<td class="${isActive ? 'sens-current' : ''}">
+        <span class="sens-pct">${pct.toFixed(0)}%</span>
+        <span class="sens-count">${cnt} of ${total}</span>
+      </td>`;
+    };
+
+    // Subbasin row
+    const basinRow = SENS_RAISES.map((r) => {
+      const c = basinDryCount(r, elevCorrectionOn);
+      return cellHtml(c.dry, c.total, r === activeRaise);
+    }).join("");
+    $("#sens-row-basin").innerHTML =
+      `<td class="sens-scope">Subbasin (n=${DOMESTIC_ACTIVE.length} domestic wells)</td>` + basinRow;
+
+    // Per-polygon row
+    if (polyTotal === 0) {
+      const empty = SENS_RAISES.map(() => `<td style="color:#888;">—</td>`).join("");
+      $("#sens-row-polygon").innerHTML =
+        `<td class="sens-scope">${polyLabel} (no domestic wells)</td>` + empty;
+    } else {
+      const polyRow = SENS_RAISES.map((r) => {
+        const c = countDryDomestic(polyWells, polyMT, polyGSE, r, elevCorrectionOn);
+        return cellHtml(c.dry, c.total, r === activeRaise);
+      }).join("");
+      $("#sens-row-polygon").innerHTML =
+        `<td class="sens-scope">${polyLabel}</td>` + polyRow;
+    }
+  }
+
+  function onSensitivityChange() {
+    renderSensitivityTable();
+    // Re-render the hydrograph to show/move the raised MT line.
+    if (currentSelection) {
+      const insideWells = currentSelection.wellsWithColor.map((wc) => wc.well);
+      renderHydrograph(currentSelection.poly, insideWells);
+    }
+  }
+
   /* -------------- bootstrap --------------------------------------------- */
   function bootstrap() {
+    buildDomesticCaches();
     renderKPIs();
     renderMap();
     populatePolygonPicker();
@@ -1019,6 +1251,16 @@
     $("#hide-all-wells").addEventListener("click", () => toggleAllWells(false));
     $("#mode-gwe").addEventListener("click", () => setDisplayMode("gwe"));
     $("#mode-dtw").addEventListener("click", () => setDisplayMode("dtw"));
+    // MT sensitivity wiring
+    $("#mt-raise-slider").addEventListener("input", (e) => {
+      mtRaiseFt = +e.target.value;
+      $("#mt-raise-display").textContent = `+${mtRaiseFt} ft`;
+      onSensitivityChange();
+    });
+    $("#tog-elev-correction").addEventListener("change", (e) => {
+      elevCorrectionOn = e.target.checked;
+      onSensitivityChange();
+    });
     // Auto-select first polygon
     if (RMS_POLYGONS.length > 0) {
       const first = RMS_POLYGONS.slice().sort((a, b) => a.zone_label.localeCompare(b.zone_label))[0];
