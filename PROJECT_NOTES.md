@@ -428,9 +428,11 @@ prior `MT ≈ drought_min − 70` coefficient. The new approach:
    MO_ft = round(drought_min)        [unchanged from prior Mirror]
    IM_ft = round(drought_min + 2)    [unchanged from prior Mirror]
    ```
-   `region_buffer` is keyed on **geographic** `mgmt_area_full` (not the
-   network assignment), so the 2 N-network wells located in Chico
-   (22N01E09B001M, 22N01E20K001M) use the Chico buffer (27.93 ft).
+   `region_buffer` is keyed on the **network** `rms_mgmt_area`, so the
+   2 N-network wells located in Chico (22N01E09B001M, 22N01E20K001M)
+   use the **North** buffer (69.55 ft), consistent with their role as
+   North RMS wells. (An earlier draft used the geographic mgmt area;
+   corrected on 2026-05-21.)
 
 **MT vs MO use different "low" bases by design.** MT uses all-time min
 to match the 2022 GSP MT-buffer benchmark exactly. MO stays on
