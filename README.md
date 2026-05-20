@@ -418,19 +418,20 @@ For each of the 17 non-carryover 2027 RMS wells:
 alltime_min = min GWE on the full DWR record, QA=Good only
 drought_min = min GWE during 2012-2016 + 2020-2022 drought windows
 region_buf  = regional buffer (69.55 N, 57.60 S, 27.93 Chico) — KEYED
-              ON GEOGRAPHIC mgmt_area_full, not the network assignment
+              ON NETWORK rms_mgmt_area, not geographic mgmt_area_full
 
 MT_ft       = round(alltime_min − region_buf)
 MO_ft       = round(drought_min)         [unchanged from prior Mirror]
 IM_2027_ft  = round(drought_min + 2)     [unchanged from prior Mirror]
 ```
 
-**Why use geographic mgmt area for the buffer?** The buffer reflects
-regional hydrology where the well physically sits, not the network-
-design assignment. So the 2 wells that are RMS for the North network
-but physically inside Chico mgmt area (`22N01E09B001M`,
-`22N01E20K001M`) use the Chico buffer (27.93 ft), giving them tight
-buffers consistent with their Chico hydrologic setting.
+**Why use network mgmt area for the buffer?** These wells are
+designated as RMS for a specific network's monitoring purposes; the
+buffer they should be benchmarked against is the buffer of that
+network. So the 2 wells that are RMS for the North network but
+physically inside Chico mgmt area (`22N01E09B001M`, `22N01E20K001M`)
+use the North buffer (69.55 ft), consistent with their role as North
+RMS wells.
 
 **Why two different "low" bases for MT vs MO?** MT uses all-time min
 (matches the 2022 GSP MT-buffer benchmark exactly). MO uses

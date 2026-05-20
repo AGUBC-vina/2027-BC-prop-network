@@ -33,12 +33,16 @@ the well was an RMS in the 2022 GSP.
         MO_ft        = round(drought_min)                    [unchanged]
         IM_2027_ft   = round(drought_min + 2)                [unchanged]
 
-    Notes on choice of geography for the buffer:
-    - Buffer reflects regional hydrology where the well physically sits,
-      not the network-design assignment. So the 2 wells that are RMS for
+    Notes on choice of mgmt area for the buffer (revised 2026-05-21b):
+    - Buffer is keyed on the well's NETWORK assignment (rms_mgmt_area),
+      not its geographic mgmt_area_full. So the 2 wells that are RMS for
       the North network but physically inside Chico mgmt area
-      (22N01E09B001M, 22N01E20K001M) use the Chico buffer (27.93 ft),
-      giving them tight buffers consistent with their Chico setting.
+      (22N01E09B001M, 22N01E20K001M) use the North buffer (69.55 ft),
+      consistent with their role as North RMS wells.
+    - Rationale: these wells are designated as North RMS because they
+      represent North conditions for the 2027 network. The buffer they
+      should be benchmarked against is the North regional buffer, not the
+      Chico one. (Earlier draft used geographic mgmt area; corrected.)
 
 Source labels in the output:
     "2022 GSP"     — adopted carryovers (9 wells). Visualized with dashed
@@ -172,6 +176,13 @@ def main():
             continue
 
         # ---- 2022 Mirror — new buffer-based methodology ------------
+        # Use the well's NETWORK assignment (rms_mgmt_area) for the buffer
+        # lookup. For most wells this equals mgmt_area_full; for the 2
+        # Chico-located wells that are RMS-for-North (22N01E09B001M,
+        # 22N01E20K001M), rms_mgmt_area = "01-Vina-North" so they get the
+        # North buffer (69.55 ft) rather than the Chico buffer (27.93 ft).
+        rms_ma = w.get("rms_mgmt_area", w["mgmt_area_full"])
+
         if alltime_min is None:
             # Wells without ANY QA-Good GWE — extremely rare for RMS;
             # flag and leave thresholds None.
@@ -179,6 +190,7 @@ def main():
                 "swn": name,
                 "site_code": site,
                 "mgmt_area_full": w["mgmt_area_full"],
+                "rms_mgmt_area": rms_ma,
                 "source": "2022 Mirror (no GWE data)",
                 "mt_ft": None,
                 "mo_ft": None,
@@ -189,16 +201,16 @@ def main():
                 "drought_first": None,
                 "drought_last": None,
                 "low_drought_data": True,
-                "regional_buffer_ft": REGIONAL_BUFFER_FT.get(w["mgmt_area_full"]),
+                "regional_buffer_ft": REGIONAL_BUFFER_FT.get(rms_ma),
             }
             out.append(rec)
             continue
 
-        region_buf = REGIONAL_BUFFER_FT.get(w["mgmt_area_full"])
+        region_buf = REGIONAL_BUFFER_FT.get(rms_ma)
         if region_buf is None:
             raise SystemExit(
-                f"No regional buffer defined for mgmt_area_full = "
-                f"{w['mgmt_area_full']!r} (well {name})"
+                f"No regional buffer defined for rms_mgmt_area = "
+                f"{rms_ma!r} (well {name})"
             )
 
         mt_ft = round(alltime_min - region_buf)
@@ -212,6 +224,7 @@ def main():
             "swn": name,
             "site_code": site,
             "mgmt_area_full": w["mgmt_area_full"],
+            "rms_mgmt_area": rms_ma,
             "source": "2022 Mirror",
             "mt_ft": mt_ft,
             "mo_ft": mo_ft,
