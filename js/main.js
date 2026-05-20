@@ -231,6 +231,15 @@
     basemapLayer.bringToBack();
   }
 
+  // Look up "is this well's location inside the Chico mgmt area polygon"
+  // from the three-zone polygons data (every N-cell polygon carries this
+  // flag, derived during the build at scripts/build_polygons_three_zone.py).
+  function isWellPhysicallyInChico(swn) {
+    if (typeof RMS_POLYGONS_THREE_ZONE === "undefined") return false;
+    const p = RMS_POLYGONS_THREE_ZONE.find((x) => x.rms_well_swn === swn);
+    return !!(p && p.well_in_chico_mgmt_area);
+  }
+
   function buildWellPopup(w) {
     const lat = w.latitude, lng = w.longitude;
     const wse = currentWSE(w);
@@ -259,11 +268,19 @@
     const bcLine = bcReason
       ? `<div style="margin-top:6px; padding-top:6px; border-top:1px solid #eee;"><b>Butte County reasoning:</b><br>${bcReason}</div>`
       : "";
+    // For the 3 N RMS wells whose physical location is inside the Chico
+    // mgmt area (22N01E09B001M, 22N01E20K001M, 23N01E33A001M), surface
+    // that fact so reviewers understand why the well marker sits inside
+    // the Chico polygon while the well's Thiessen cell is drawn in N.
+    const chicoNote = (w.is_2027_gwl_rms && isWellPhysicallyInChico(w.swn))
+      ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> physical location inside the Chico mgmt area; RMS for the North network. The Thiessen cell sits north of this well (Chico territory is clipped away).</div>`
+      : "";
     return `
       <div style="font-size:12.5px;line-height:1.45;max-width:300px;">
         <div style="font-weight:600;font-size:13px;margin-bottom:4px;">${w.well_name}</div>
         <div><b>Mgmt area:</b> ${w.mgmt_area_full || "—"}</div>
         <div><b>Role:</b> ${w.is_2027_gwl_rms ? "2027 Proposed RMS" : "Supplemental"}${w.is_2022_gwl_rms ? " · was 2022 RMS" : ""}</div>
+        ${chicoNote}
         ${wseLine}
         ${recordLine}
         ${nestedLine}
@@ -385,10 +402,9 @@
   }
 
   // Swap the active polygon set (single ↔ three-zone). Rebuilds the map
-  // polygon layer, re-populates the §5.3 picker, and re-selects the
-  // previously-selected SWN if it still exists in the new set (it will:
-  // both sets share the same 28 RMS wells, only the cell geometries and
-  // mgmt-area attributions differ).
+  // polygon layer, re-populates the §5.3 picker, refreshes the KPI count
+  // (single = 27 cells, three-zone = 26), and re-selects the
+  // previously-selected SWN if it still exists in the new set.
   function setPolygonMethod(method) {
     if (method !== "single" && method !== "three_zone") return;
     if (typeof RMS_POLYGONS_SINGLE === "undefined"
@@ -398,6 +414,7 @@
     const keep = selectedPoly;
     buildPolygonLayer();
     populatePolygonPicker();
+    $("#kpi-poly").textContent = RMS_POLYGONS.length;
     if (keep && RMS_POLYGONS.find((p) => p.zone_label === keep)) {
       selectPolygon(keep);
     } else if (RMS_POLYGONS.length) {

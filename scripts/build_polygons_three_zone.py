@@ -213,51 +213,54 @@ def main():
         "geometry": mapping(chico_boundary_wgs),
     })
 
-    # ---------------- NORTH: TWO VORONOI COMPUTATIONS -----------------
-    # Per 2026-05-19b user direction:
-    #   - 11 originally-North cells stop at the Chico mgmt-area boundary
-    #     (no overlap with Chico). They are clipped to (Basin - Chico -
-    #     South), which absorbs any sliver between mgmt-area boundaries
-    #     into the nearest cell so the basin coverage is contiguous.
-    #   - 2 reassigned wells (22N01E09B001M, 22N01E20K001M) get separate
-    #     small Voronoi cells INSIDE the Chico mgmt area, bounded by
-    #     phantom seeds at the CWSCH and 22N01E28J nested-site coords so
-    #     they don't sweep all of Chico.
+    # ---------------- NORTH: 13 VORONOI CELLS, CLIPPED OUT OF CHICO ---
+    # Per 2026-05-20 user direction:
+    #   - All 13 North RMS wells get their own Thiessen cells (one per
+    #     picker entry). Voronoi midlines come from 13 N seeds + 2 phantom
+    #     Chico nested-site seeds so the 3 Chico-located N wells'
+    #     theoretical cells are bounded from the south.
+    #   - Every cell is clipped to (Basin - Chico mgmt area - South mgmt
+    #     area). No North cell overlaps with Chico territory.
+    #   - The 3 Chico-located N wells (22N01E09B001M, 22N01E20K001M,
+    #     23N01E33A001M) have their *well location* inside Chico, but their
+    #     clipped cell is a sliver in N (whatever's outside Chico that's
+    #     closer to that well than to any other N seed). One or more of
+    #     these may end up empty if the well's entire Voronoi region is
+    #     inside Chico — emit a degenerate "marker only" entry in that
+    #     case (rings is an empty list) so the §5.3 picker still works.
+    #   - Slivers along the north Chico boundary (basin areas outside Chico
+    #     but not initially covered by any cell at the Voronoi step) get
+    #     absorbed into the adjacent N cell naturally — clipping to
+    #     (Basin - Chico - South) ensures the 13 cells tile every basin
+    #     point that isn't in Chico or South.
     north_seeds = by_net.get("01-Vina-North", [])
-    originally_north = [s for s in north_seeds if not s["reassigned"]]
-    reassigned = [s for s in north_seeds if s["reassigned"]]
-    print(f"  North: {len(originally_north)} originally-N + {len(reassigned)} reassigned")
+    print(f"  North: {len(north_seeds)} seeds (including "
+          f"{sum(1 for s in north_seeds if s['reassigned'])} workbook-reassigned)")
 
-    # 11 originally-N cells: Voronoi clipped to (Basin - Chico - South).
-    # That gives them the entire non-Chico, non-South portion of the basin,
-    # which absorbs slivers between mgmt-area boundaries into the nearest
-    # cell (rather than leaving a thin uncovered band).
+    # Voronoi over north_domain = (Basin - Chico - South) directly. Every
+    # point in that domain is assigned to its nearest N seed, so the 13
+    # cells tile north_domain exactly — no orphan slivers along the
+    # Chico mgmt-area boundary, no leftover area between mgmt-area
+    # polygons. The 3 Chico-located N wells have their positions outside
+    # the clip domain, but their Voronoi regions naturally extend into
+    # north_domain (the parts of N closer to them than to any other N
+    # seed); scipy handles seeds-outside-clip correctly.
     north_domain = basin.difference(areas["02-Vina-Chico"]).difference(areas["03-Vina-South"])
-    originally_cells = voronoi_cells(
-        north_domain, [s["xy"] for s in originally_north]
+    north_cells_clipped_list = voronoi_cells(
+        north_domain, [s["xy"] for s in north_seeds]
     )
+    north_cells_clipped = list(zip(north_seeds, north_cells_clipped_list))
 
-    # 2 reassigned cells: Voronoi over just the 2 wells + 2 phantom Chico
-    # nested-site coords, clipped to Chico mgmt area only. The phantoms keep
-    # the reassigned cells from sweeping all of Chico (they'd otherwise split
-    # Chico in halves). Phantom output cells are discarded.
-    chico_sites = {}
-    for s in chico_seeds:
-        key = (round(s["lat"], 5), round(s["lon"], 5))
-        chico_sites[key] = s["xy"]
-    phantom_xy = list(chico_sites.values())
-    print(f"  Phantom seeds for reassigned-cell Voronoi: {len(phantom_xy)} Chico-site coords")
-    combined_xy = [s["xy"] for s in reassigned] + phantom_xy
-    combined_cells = voronoi_cells(areas["02-Vina-Chico"], combined_xy)
-    reassigned_cells = combined_cells[: len(reassigned)]
-
-    # Emit 11 + 2 = 13 North cells in workbook order
-    north_cells_pairs = (
-        list(zip(originally_north, originally_cells))
-        + list(zip(reassigned, reassigned_cells))
-    )
-    for s, cell_alb in north_cells_pairs:
-        cell_wgs = transform(to_wgs, cell_alb)
+    for s, cell_alb in north_cells_clipped:
+        in_chico = s["workbook_ma"] == "02-Vina-Chico" or s["reassigned"]
+        if cell_alb.is_empty:
+            rings = []
+            cell_wgs = None
+            area_ac = 0.0
+        else:
+            cell_wgs = transform(to_wgs, cell_alb)
+            rings = geom_to_rings_latlng(cell_wgs)
+            area_ac = acres(cell_alb)
         props = {
             "zone_label": s["swn"],
             "rms_well_swn": s["swn"],
@@ -265,17 +268,20 @@ def main():
             "mgmt_area": "North",
             "workbook_mgmt_area": s["workbook_ma"],
             "reassigned": s["reassigned"],
+            "well_in_chico_mgmt_area": bool(areas["02-Vina-Chico"].covers(Point(*s["xy"]))),
             "is_aggregate": False,
+            "is_marker_only": cell_alb.is_empty,
             "seed_lat": round(s["lat"], 6),
             "seed_lon": round(s["lon"], 6),
-            "area_acres": acres(cell_alb),
+            "area_acres": area_ac,
         }
-        polygons_js.append({**props, "rings": geom_to_rings_latlng(cell_wgs)})
-        features.append({
-            "type": "Feature",
-            "properties": props,
-            "geometry": mapping(cell_wgs),
-        })
+        polygons_js.append({**props, "rings": rings})
+        if cell_wgs is not None:
+            features.append({
+                "type": "Feature",
+                "properties": props,
+                "geometry": mapping(cell_wgs),
+            })
 
     # ---------------- SOUTH: 12 VORONOI CELLS ------------------------
     south_seeds = by_net.get("03-Vina-South", [])
@@ -328,22 +334,18 @@ def main():
     n_features = [f for f in features
                   if f["properties"]["mgmt_area_full"] == "01-Vina-North"
                   and not f["properties"].get("is_aggregate")]
-    n_originally = unary_union(
-        [shape(f["geometry"]) for f in n_features
-         if not f["properties"].get("reassigned")]
-    )
-    n_reassigned = unary_union(
-        [shape(f["geometry"]) for f in n_features
-         if f["properties"].get("reassigned")]
-    )
-    n_originally_in_chico = n_originally.intersection(chico_boundary_wgs)
-    print(f"  Chico mgmt area:                 {chico_props['area_acres']:>10.1f} ac")
-    print(f"  ... overlapped by 2 reassigned: {acres(transform(to_albers, n_reassigned.intersection(chico_boundary_wgs))):>10.1f} ac (intentional overlay)")
-    print(f"  ... overlapped by 11 origin-N:  {acres(transform(to_albers, n_originally_in_chico)):>10.1f} ac (should be ~0)")
-    for f in features:
-        p = f["properties"]
+    n_all = unary_union([shape(f["geometry"]) for f in n_features])
+    n_in_chico = n_all.intersection(chico_boundary_wgs)
+    print(f"  Chico mgmt area:                {chico_props['area_acres']:>10.1f} ac")
+    print(f"  ... overlapped by any N cell:  {acres(transform(to_albers, n_in_chico)):>10.1f} ac (must be 0)")
+    print(f"\n  Per-cell areas:")
+    for p in polygons_js:
         if p.get("is_aggregate"): continue
-        tag = "  <-reassigned" if p["reassigned"] else ""
+        tag = ""
+        if p.get("is_marker_only"):
+            tag = "  <-marker-only (well in Chico, no N-side region)"
+        elif p.get("well_in_chico_mgmt_area"):
+            tag = "  <-well in Chico mgmt area"
         print(f"  {p['mgmt_area_full']:15} {p['rms_well_swn']:24} "
               f"{p['area_acres']:>10.1f} ac{tag}")
 
