@@ -321,7 +321,19 @@
     });
     visible.bindPopup(buildWellPopup(w), { maxWidth: 340 });
     hit.on("click", () => visible.openPopup());
-    const group = L.featureGroup([hit, visible]);
+    // 2022 RMS wells get a small white dot in the middle so reviewers can
+    // tell at a glance which wells were already in the prior network.
+    const layers = [hit, visible];
+    if (w.is_2022_gwl_rms) {
+      const dot = L.circleMarker([lat, lng], {
+        radius: Math.max(2, Math.round(style.radius * 0.35)),
+        fillColor: "#ffffff", fillOpacity: 1,
+        color: "#ffffff", weight: 0, opacity: 1,
+        interactive: false, pane: "wellsPane",
+      });
+      layers.push(dot);
+    }
+    const group = L.featureGroup(layers);
     group.well = w;
     return group;
   }
@@ -359,7 +371,20 @@
     renderTab(0);
     visible.bindPopup(popupEl, { maxWidth: 340 });
     hit.on("click", () => visible.openPopup());
-    const group = L.featureGroup([hit, visible]);
+    // 2022 RMS marker — show the white dot if ANY well at this site was
+    // 2022 RMS (e.g. nested completions in the CWSCH and 22N01E28J sites
+    // where some primaries are 2022 RMS but not all completions).
+    const layers = [hit, visible];
+    if (wells.some((w) => w.is_2022_gwl_rms)) {
+      const dot = L.circleMarker([lat, lng], {
+        radius: Math.max(2, Math.round(baseStyle.radius * 0.35)),
+        fillColor: "#ffffff", fillOpacity: 1,
+        color: "#ffffff", weight: 0, opacity: 1,
+        interactive: false, pane: "wellsPane",
+      });
+      layers.push(dot);
+    }
+    const group = L.featureGroup(layers);
     group.wells = wells;
     return group;
   }
