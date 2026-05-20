@@ -55,6 +55,9 @@ def main():
             "rms_mgmt_area": w.get("rms_mgmt_area", w["mgmt_area_full"]),
             "rms_mgmt_area_short": MA_SHORT.get(
                 w.get("rms_mgmt_area", w["mgmt_area_full"]), "Other"),
+            # 21N02E26E006M inherits its 2022 GSP MT/MO/IM from a nested
+            # sibling at the same lat/lng (21N02E26E005M, retired from 2027).
+            "carryover_from": w.get("carryover_from"),
             "well_depth": w["well_depth"],
             "is_2022_gwl_rms": bool(w["is_2022_gwl_rms"]),
             "is_2027_gwl_rms": bool(w["is_2027_gwl_rms"]),

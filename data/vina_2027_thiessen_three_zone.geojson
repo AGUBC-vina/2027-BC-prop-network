@@ -19,20 +19,20 @@
           "CWSCH07"
         ],
         "rms_primary_swns": [
-          "22N01E28J003M",
-          "CWSCH01b",
-          "CWSCH02",
-          "CWSCH03",
-          "CWSCH07"
+          "CWSCH01b"
         ],
         "rms_supplemental_swns": [
           "22N01E28J001M",
+          "22N01E28J003M",
           "22N01E28J005M",
+          "CWSCH02",
+          "CWSCH03",
           "CWSCH04",
           "CWSCH05",
-          "CWSCH06"
+          "CWSCH06",
+          "CWSCH07"
         ],
-        "rms_label": "Chico  \u00b7  10 completions across 2 nested sites",
+        "rms_label": "Chico  \u00b7  CWSCH01b (RMS) + 9 nested supplemental completions",
         "mgmt_area_full": "02-Vina-Chico",
         "mgmt_area": "Chico",
         "is_aggregate": true,

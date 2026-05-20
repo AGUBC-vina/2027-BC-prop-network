@@ -275,12 +275,18 @@
     const chicoNote = (w.is_2027_gwl_rms && isWellPhysicallyInChico(w.swn))
       ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> physical location inside the Chico mgmt area; RMS for the North network. The Thiessen cell sits north of this well (Chico territory is clipped away).</div>`
       : "";
+    // For 21N02E26E006M (and any future wells using the same convention)
+    // the MT/MO/IM are inherited from a nested sibling that was 2022 RMS.
+    const inheritNote = w.carryover_from
+      ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> MT/MO/IM inherited from <code>${w.carryover_from}</code>, the 2022 GSP RMS at this same lat/lng (different completion depth).</div>`
+      : "";
     return `
       <div style="font-size:12.5px;line-height:1.45;max-width:300px;">
         <div style="font-weight:600;font-size:13px;margin-bottom:4px;">${w.well_name}</div>
         <div><b>Mgmt area:</b> ${w.mgmt_area_full || "—"}</div>
         <div><b>Role:</b> ${w.is_2027_gwl_rms ? "2027 Proposed RMS" : "Supplemental"}${w.is_2022_gwl_rms ? " · was 2022 RMS" : ""}</div>
         ${chicoNote}
+        ${inheritNote}
         ${wseLine}
         ${recordLine}
         ${nestedLine}
