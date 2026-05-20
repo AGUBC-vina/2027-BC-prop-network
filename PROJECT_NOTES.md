@@ -273,6 +273,69 @@ Branch: `three-zone-thiessen`; PR
 Default behavior on the dashboard is **Single tessellation** so nothing
 visually changes for existing reviewers until they explicitly toggle.
 
+### 11. 2026-05-19 network revision — restructure of all three areas
+
+Tovey provided a revised RMS list reflecting stakeholder input. Key
+changes:
+
+- **North** grew from 13 → 13 wells, but composition changed:
+  - **Dropped**: `23N01W03H004M`, `23N01W31M004M`
+  - **Reassigned in**: `22N01E09B001M`, `22N01E20K001M` — both
+    physically in the Chico mgmt area but treated as North RMS for the
+    2027 network. A new `rms_mgmt_area` field on each well in
+    `wells_resolved.json` carries the network-design assignment; the
+    geographic `mgmt_area_full` is preserved.
+- **Chico** shrank from 3 Voronoi cells with 3 RMS wells to **1
+  dissolved mgmt-area polygon** associated with 10 well completions
+  across 2 nested 2022 GSP RMS sites:
+  - CWSCH 7-nest: `CWSCH01b/02/03/04/05/06/07`
+  - 22N01E28J 3-nest: `22N01E28J001M/003M/005M`
+  - The previous 3 Chico RMS wells (`22N01E09B001M`,
+    `22N01E20K001M`) moved to North. The third (`23N01E33A001M`) which
+    was reassigned to Chico spatially in step 10 stays geographically
+    in Chico via `mgmt_area_full` but is back in North per the network
+    design — covered by its own North Voronoi cell.
+- **South** shrank from 13 → 12: `20N02E08H003M` dropped.
+- Total: **35 RMS well completions** (was 28); **26 polygon entries**
+  (was 28).
+
+**Polygon strategy by area:**
+- North: Voronoi of 13 seeds, clipped to (N∪C) so the 2 reassigned
+  cells extend into Chico territory. Two **phantom seeds** (the CWSCH
+  and 22N01E28J coordinates) are added to the Voronoi computation to
+  bound the reassigned cells from the south — without them, scipy
+  gives those 2 cells ~18,000 ac each (they'd dominate the southern
+  half of N∪C); with them, each cell is 7,000–9,000 ac.
+- Chico: dissolved polygon, no Voronoi. Carries `is_aggregate: true`,
+  `rms_well_swns: [...10 SWNs]`, `rms_label` for the picker. Drawn
+  first in the output array so the 2 reassigned-North cells overlay
+  Chico in their overlap regions (~7,200 ac total overlap).
+- South: Voronoi of 12 seeds clipped to South mgmt area.
+
+**Thresholds:** dropped 3 (the dropped wells were 2022 Mirror, no
+adopted values lost). Added 5 from 2022 GSP for the Chico primaries
+(CWSCH01b/02/03/07, 22N01E28J003M). Total threshold entries: 30 (was
+28; 12 "2022 GSP" + 18 "2022 Mirror"). The 5 supplemental Chico
+nested completions have no thresholds, matching the 2022 GSP
+convention.
+
+**Dashboard handling:** new `polygonWells(poly)` helper resolves
+"the wells this polygon represents" — for aggregate polygons, it uses
+`rms_well_swns` directly; for per-well polygons, it falls back to
+geographic point-in-polygon. §5.3 picker, header, hydrograph, and §5.4
+scatter all support the aggregate case. Selecting Chico renders 25
+Plotly traces (10 well GWE + 15 threshold lines for 5 primaries).
+
+**Storage repo impact:** the sibling `2027-BC-storage` dashboard reads
+`polygons-data-three-zone.js`. The data shape changed (Chico entry now
+has `is_aggregate`, `rms_well_swns`; reassigned wells have new
+mgmt-area-vs-workbook tagging). The storage dashboard will need a
+parallel update to consume the new shape — flagged for follow-up.
+
+Branch: `2027-network-revision`; bump cache-buster to `?v=8`. Default
+polygon method on the dashboard remains **three-zone** (set as default
+in the previous session).
+
 ---
 
 ## Key methodological decisions
