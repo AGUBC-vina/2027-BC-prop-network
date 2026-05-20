@@ -504,6 +504,78 @@ blue and 2022 Mirror rows shaded warm cream.
 
 ---
 
+## Domestic-well sensitivity to MT (2026-05-22)
+
+§5.2 includes a "Show domestic wells" toggle that overlays **1,253
+active domestic wells** from the cosmo v6 inventory
+(`Vina_GWL_MT22_analysis_v6.xlsx`, April 2026). The wells are
+canvas-rendered for performance and color-coded by which 2027 mgmt
+area their lat/lng falls into. The bundle is pulled from
+[cosmo1007/2022-RMS-Well-MT-Sensitivity](https://cosmo1007.github.io/2022-RMS-Well-MT-Sensitivity/)
+and spatial-joined to our 2027 polygons via
+`scripts/fetch_cosmo_domestic_wells.py`.
+
+§5.3 includes the **MT sensitivity widget**: a slider, an
+elevation-correction toggle, and a sensitivity table.
+
+**Slider** (`MT raise: 0–30 ft`). Adjusts the selected polygon's MT
+upward in 1-ft increments for sensitivity exploration. The
+hydrograph draws a dashed orange "MT + N" line at the raised value,
+and the RMS well's popup reports dry-domestic-well counts at both
+the original MT and the slider-adjusted MT.
+
+**Sensitivity table**. Two rows:
+
+- **Subbasin (basin-wide, n=1,253)**: cumulative dry counts across
+  the entire 2027 RMS network. For each polygon, computes
+  dry-at-MT, dry-at-MT+5, ..., dry-at-MT+30 using that polygon's
+  RMS well's MT, and sums across polygons.
+- **Selected polygon**: same calculation, just for the wells inside
+  the currently-selected polygon.
+
+The column matching the slider's current value (rounded to the
+nearest 5-ft step) is highlighted in warm cream.
+
+**Definition of "dry"**: a domestic well is "dry" at a given MT
+when its well-bottom elevation (AMSL) sits above MT. Geometrically,
+if regional water levels fell to MT, the water table would be below
+the well's bottom and no water would be pumpable. Raising MT to
+preserve more groundwater therefore *reduces* the dry-well count,
+which is why all sensitivity counts in the table decrease as you
+move from MT to MT+30.
+
+**Elevation correction toggle** (`Adjust threshold for each well's
+elevation`). When on, the dry calculation uses an
+*effective_MT* that is shifted upward for domestic wells located
+*higher than* their polygon's RMS well:
+
+```
+gse_delta     = max(0, domestic_gse − rms_gse)   # one-sided
+effective_MT  = polygon_MT + slider_raise + gse_delta
+dry           = (well_bottom_amsl > effective_MT)
+```
+
+This mirrors the cosmo dashboard's "one-sided" foothill correction:
+a domestic well in the foothills above its valley RMS well needs a
+higher local GWE to be wet, so its effective MT is the basin MT
+plus the elevation difference. Wells *lower* than their RMS well
+(more common) are not adjusted.
+
+**RMS well popup additions**. Clicking an RMS well marker now shows
+two extra lines:
+
+- **Dry domestic wells at MT (`N` ft)**: count of dry domestic wells
+  inside this RMS well's polygon at the original MT (no slider raise,
+  honors elev-correction toggle).
+- **Dry at MT + `X` ft**: same, with the slider's current raise
+  applied. When the slider is at 0, this row reads "(no slider
+  adjustment)" and matches the line above.
+
+Popup content is recomputed fresh each time a popup opens, so it
+always reflects the current slider + elev-toggle state.
+
+---
+
 ## Data sources
 
 | Layer | Source | Endpoint |

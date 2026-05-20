@@ -106,6 +106,46 @@
       margin: 10px 0 12px; font-size: 13px; color: #555;
       flex-wrap: wrap;
     }
+    .mt-sensitivity-controls {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 8px; margin: 6px 0 14px;
+      padding: 10px 12px;
+      background: #fff7ed;
+      border-left: 4px solid #c25a00;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .mt-sensitivity-controls input[type="range"] { vertical-align: middle; }
+
+    #sensitivity-widget {
+      margin: 18px 0 16px;
+      padding: 12px 14px;
+      background: #fafbfd;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    }
+    #sensitivity-widget .sensitivity-h3 {
+      margin: 0 0 4px; font-size: 14px; color: var(--accent);
+    }
+    #sensitivity-widget .sensitivity-lede {
+      margin: 0 0 10px; font-size: 12px; color: #555; line-height: 1.45;
+    }
+    .sensitivity-table {
+      width: 100%; border-collapse: collapse; font-size: 12.5px;
+      table-layout: fixed;
+    }
+    .sensitivity-table th, .sensitivity-table td {
+      padding: 8px 10px; text-align: right; border-bottom: 1px solid #eee;
+    }
+    .sensitivity-table th { background: #f0f5ff; color: var(--accent); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.02em; }
+    .sensitivity-table th:first-child, .sensitivity-table td.sens-scope {
+      text-align: left; font-weight: 600; width: 28%;
+    }
+    .sensitivity-table td.sens-current {
+      background: #fff7ed; font-weight: 600; color: #c25a00;
+    }
+    .sensitivity-table td .sens-pct { font-weight: 600; }
+    .sensitivity-table td .sens-count { font-size: 11px; color: #666; display: block; }
     .ctrl-btn {
       background: #f0f5ff; color: var(--accent);
       border: 1px solid #c7d6f5;
@@ -286,6 +326,7 @@
       <label><input type="checkbox" id="tog-shading" checked> Shade by management area</label>
       <label><input type="checkbox" id="tog-rms-2027" checked> Show 2027 RMS wells</label>
       <label><input type="checkbox" id="tog-supp" checked> Show supplemental wells</label>
+      <label><input type="checkbox" id="tog-domestic"> Show domestic wells</label>
     </div>
 
     <div id="map"></div>
@@ -294,6 +335,7 @@
       <span class="legend-chip"><span class="legend-dot" style="background: var(--rms-2027);"></span>2027 Proposed RMS well</span>
       <span class="legend-chip"><span class="legend-dot" style="background: var(--rms-2027); position: relative;"><span style="position:absolute;left:50%;top:50%;width:5px;height:5px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);"></span></span>also a 2022 GSP RMS well</span>
       <span class="legend-chip"><span class="legend-dot" style="background: var(--supp); width: 9px; height: 9px;"></span>Supplemental well</span>
+      <span class="legend-chip"><span class="legend-dot" style="background: #9ca3af; width: 6px; height: 6px;"></span>Domestic well (cosmo v6, n=1,253)</span>
       <span class="legend-chip"><span class="legend-box" style="background: rgba(31,78,224,0.18); border-color: var(--north);"></span>01-Vina-North polygon</span>
       <span class="legend-chip"><span class="legend-box" style="background: rgba(224,123,31,0.18); border-color: var(--chico);"></span>02-Vina-Chico polygon</span>
       <span class="legend-chip"><span class="legend-box" style="background: rgba(44,160,44,0.18); border-color: var(--south);"></span>03-Vina-South polygon</span>
@@ -332,12 +374,65 @@
       <span style="margin-left:auto; color:#888; font-size:12px;">Tip: click any column header below to sort.</span>
     </div>
 
+    <div class="mt-sensitivity-controls">
+      <label style="display:flex; align-items:center; gap:8px;">
+        <span style="font-weight:600; color:#c25a00;">MT raise:</span>
+        <input type="range" id="mt-raise-slider" min="0" max="30" step="1" value="0"
+               style="width:240px;">
+        <span id="mt-raise-display" style="font-weight:600; min-width:50px;">+0 ft</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; margin-left:24px; font-size:13px;">
+        <input type="checkbox" id="tog-elev-correction">
+        <span>Adjust threshold for each well's elevation</span>
+        <span style="color:#888; font-size:11px;">(one-sided: only when domestic well GSE &gt; RMS GSE)</span>
+      </label>
+    </div>
+
     <div id="hydro"></div>
     <div class="map-legend" style="margin-top:6px;">
       <span class="legend-chip"><span class="drought-strip"></span> Drought period (1991-93, 2012-15, 2020-22)</span>
       <span class="legend-chip"><span style="border-top: 2px dashed #c00; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> MT (Minimum Threshold)</span>
       <span class="legend-chip"><span style="border-top: 2px dashed #2a7; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> MO (Measurable Objective)</span>
       <span class="legend-chip"><span style="border-top: 2px dotted #6a3aa1; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> IM-2027 (Interim Milestone)</span>
+      <span class="legend-chip"><span style="border-top: 2px dashed #ff8c00; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> MT raised (slider)</span>
+    </div>
+
+    <!-- MT sensitivity widget: dry-domestic-well counts at MT and at MT raised
+         by 5/10/15/20/25/30 ft. Top row = basin-wide cumulative. Bottom row =
+         currently-selected polygon only. -->
+    <div id="sensitivity-widget">
+      <h3 class="sensitivity-h3">Domestic-well sensitivity to MT</h3>
+      <p class="sensitivity-lede">
+        Of the 1,253 domestic wells in the cosmo v6 inventory, how many sit at
+        an elevation that would make them "dry" if water levels fell to MT —
+        and how that count changes if MT were raised. Toggle elevation
+        correction (above) for the cosmo one-sided foothill adjustment.
+        <strong>Dry</strong> = the well's bottom elevation (AMSL) sits above
+        the threshold; if the basin's water level fell to the threshold, the
+        well would have no water to pump.
+      </p>
+      <table id="sensitivity-table" class="sensitivity-table">
+        <thead>
+          <tr>
+            <th>Scope</th>
+            <th>MT</th>
+            <th>+5</th>
+            <th>+10</th>
+            <th>+15</th>
+            <th>+20</th>
+            <th>+25</th>
+            <th>+30</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr id="sens-row-basin">
+            <td class="sens-scope">Subbasin (basin-wide)</td>
+          </tr>
+          <tr id="sens-row-polygon">
+            <td class="sens-scope" id="sens-polygon-label">Selected polygon</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div id="well-detail-table-container"></div>
@@ -373,8 +468,9 @@
 <script src="js/polygons-data-three-zone.js?v=11"></script>
 <script src="js/measurements-data.js?v=3"></script>
 <script src="js/basin-boundary.js?v=3"></script>
-<script src="js/readme-data.js?v=12"></script>
-<script src="js/main.js?v=12"></script>
+<script src="js/domestic-wells-data.js?v=13"></script>
+<script src="js/readme-data.js?v=13"></script>
+<script src="js/main.js?v=13"></script>
 <script>
   // Render the bundled README markdown via marked.js. README_MD comes from
   // js/readme-data.js (regenerated by scripts/build_readme_js.py whenever
