@@ -46,6 +46,12 @@ def main():
             "site_code": w.get("site_code") or "",
             "mgmt_area_full": w["mgmt_area_full"],
             "mgmt_area": MA_SHORT.get(w["mgmt_area_full"], "Other"),
+            # Network-design assignment (may differ from geographic mgmt_area_full
+            # for the 2 Chico-located wells reassigned to North in the 2026-05-19
+            # network revision).
+            "rms_mgmt_area": w.get("rms_mgmt_area", w["mgmt_area_full"]),
+            "rms_mgmt_area_short": MA_SHORT.get(
+                w.get("rms_mgmt_area", w["mgmt_area_full"]), "Other"),
             "well_depth": w["well_depth"],
             "is_2022_gwl_rms": bool(w["is_2022_gwl_rms"]),
             "is_2027_gwl_rms": bool(w["is_2027_gwl_rms"]),

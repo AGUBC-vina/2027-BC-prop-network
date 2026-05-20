@@ -6,7 +6,16 @@ network in the Vina Subbasin (DWR B118 5-021.57), Butte County, California.
 Built from `BC Network 2026 v8.xlsx` and modeled on the
 [2022 RMS reference dashboard](https://cosmo1007.github.io/2022-rms-network/).
 
-- **§5.2** — Interactive Leaflet map (basin boundary, 28 Thiessen polygons,
+> **2026-05-19 network revision.** The 2027 RMS network was restructured
+> based on stakeholder input. The proposed network is now **35 well
+> completions across 26 polygons**: 13 North (Voronoi cells, including
+> 2 wells physically in Chico that are RMS for the North network), 1
+> dissolved Chico mgmt-area polygon (10 well completions across the 2
+> 2022 GSP nested sites: CWSCH and 22N01E28J), and 12 South (Voronoi
+> cells). Replaces the prior 28-cell three-zone tessellation. See
+> "Method B" below and PROJECT_NOTES for rationale.
+
+- **§5.2** — Interactive Leaflet map (basin boundary, 26 polygons,
   all 79 wells with layer toggles for 2022 RMS / 2027 RMS / supplemental).
 - **§5.3** — Per-polygon hydrograph (Plotly) with MT / MO / IM-2027 threshold
   lines where the 2022 GSP carried forward, plus a per-polygon well-detail
@@ -146,43 +155,67 @@ so cell edges along the basin perimeter follow the official B118 line.
 Sanity check: 28 cells total **~184,400 acres** — within 0.3% of the
 published Vina Subbasin area.
 
-### Method B — Three-zone tessellation
+### Method B — Three-zone (per-mgmt-area) — 2026-05-19 revision
 
 `scripts/build_polygons_three_zone.py`.
 
-**Clip boundaries**: three management-area polygons
-(`raw/vina_management_areas.geojson`) — one each for 01-Vina-North,
-02-Vina-Chico, 03-Vina-South.
+The three management areas are handled with **different polygon
+strategies** that reflect how the GSA's stakeholders want each area
+represented:
 
-**Spatial zone assignment**: each seed is assigned to a management area by
-**geometric containment** in the projected polygons — *not* the workbook
-mgmt-area attribute. This is an explicit on-the-record boundary call for
-SMC defensibility. The original workbook tag is preserved on every feature
-as `workbook_mgmt_area`, with a `reassigned: true|false` boolean.
+**North** — 13 wells, **Voronoi cells**. The clip domain is the union of
+the North mgmt area and the Chico mgmt area, so that the cells around
+the **2 wells reassigned to the North RMS network despite physically
+sitting in Chico** (`22N01E09B001M`, `22N01E20K001M`) extend southward
+into Chico territory naturally. The two Chico nested-site coordinates
+are added as **phantom Voronoi seeds** when computing the diagram so
+that those two cells don't dominate the entire southern half of N∪C
+(without the phantoms, scipy gives them a Voronoi region bounded only
+by the basin boundary; with them, the cells are bounded by the Chico
+sites' midlines — typical area 7,000–9,000 ac instead of 18,000+).
+The phantom seeds' cells are computed and then discarded — Chico's
+territory is represented by the aggregate polygon below.
 
-With the v8 workbook this produces a **12 / 3 / 13** seed split (vs.
-workbook tags of **13 / 2 / 13**). One well is reassigned:
+**Chico** — **one dissolved polygon** = the entire Chico mgmt area
+boundary (no internal Voronoi subdivision). Associated with **10 well
+completions across 2 nested 2022 GSP RMS sites**: the CWSCH 7-nest
+(CWSCH01b/02/03/04/05/06/07) and the 22N01E28J 3-nest
+(22N01E28J001M/003M/005M). The dashboard renders this as a single
+picker entry; selecting it plots all 10 well traces in §5.3. Of the
+10, **5 have 2022 GSP thresholds** (CWSCH01b/02/03/07 and 22N01E28J003M
+— matching the 2022 GSP's "primary completion" convention); the other
+5 are monitored but unthresholded, again matching 2022 GSP.
 
-| Well | Workbook tag | Spatial zone |
-|---|---|---|
-| `23N01E33A001M` | 01-Vina-North | **02-Vina-Chico** |
+**South** — 12 wells, **Voronoi cells**, clipped to South mgmt area.
+Straightforward — same approach as the prior three-zone build.
 
-A seed that lands outside all three areas is a hard error (it cannot be
-silently dropped). A seed on a shared edge is resolved to the area whose
-interior strictly contains it, else nearest centroid, with a console
-warning.
+**Drawing order** in the dashboard: the output JS array is
+`[Chico, ...North, ...South]`, which determines the SVG draw order in
+the Leaflet `polygonsPane`. Chico is drawn first (at the back); the 13
+North cells overlay on top, so the 2 reassigned-well cells that extend
+into Chico territory are visible against the Chico fill. The dashboard
+uses dedicated Leaflet panes (`polygonsPane` z-index 400,
+`wellsPane` z-index 450) so the well markers always sit above polygons
+regardless of toggle order.
 
-**Tessellation**: three independent Voronoi diagrams — one per management
-area, each computed over only that area's seeds and each clipped to that
-area's polygon. Cells **do not** cross management-area lines; hard seams
-at the boundaries.
+**Membership**: comes from a new `rms_mgmt_area` field in
+`wells_resolved.json` (the network-design assignment, which can differ
+from the geographic `mgmt_area_full`). For the 2 Chico-located North
+wells, `rms_mgmt_area = "01-Vina-North"` while `mgmt_area_full` stays
+`"02-Vina-Chico"`. Every polygon feature also carries
+`workbook_mgmt_area` and `reassigned: true|false` for the audit trail.
 
 **Export**:
-- `data/vina_2027_thiessen_three_zone.geojson` — FeatureCollection
+- `data/vina_2027_thiessen_three_zone.geojson` — FeatureCollection of 26 features
 - `js/polygons-data-three-zone.js` — `const RMS_POLYGONS_THREE_ZONE = [...]`
+- The Chico aggregate entry carries `is_aggregate: true`,
+  `rms_well_swns: [...10 SWNs]`, and a custom `rms_label` for the picker
 
-Sanity check: stitched cells total **184,797 acres = exact union of the
-three management-area polygons**, gap −0.0 ac at the seams.
+Sanity check: total 26 entries (1 + 13 + 12). The Chico polygon covers
+the entire Chico mgmt area (~29,718 ac); the 2 reassigned-North cells
+overlap into Chico for a total of ~7,200 ac — this overlap is
+intentional and matches the user-requested "north cells overlay Chico"
+visual.
 
 ### Per-polygon areas (both methods)
 
@@ -255,23 +288,34 @@ The dashboard shows Sustainable Management Criteria (SMC) threshold lines on
 every 2027 RMS well's hydrograph. Values come from one of two sources, both
 expressed as **groundwater elevation in ft msl** (not depth-below-RPE):
 
-### Source 1 — "2022 GSP" (adopted, 7 wells)
+### Source 1 — "2022 GSP" (adopted, 12 wells)
 
 These are the **Minimum Threshold (MT)**, **Measurable Objective (MO)**, and
 **Interim Milestone for 2027 (IM-2027)** values carried over **unchanged**
-from the 2022 Vina GSP for the seven wells that are in both the 2022 and
-2027 RMS networks. Rendered with **dashed** lines in §5.3 hydrographs and
-labeled with the "GSP-adopted MT/MO" pill in the §5.3 table.
+from the 2022 Vina GSP for the 12 wells (7 from the original 2027 RMS plus
+5 Chico primaries added in the 2026-05-19 revision) that are in both the
+2022 and 2027 RMS networks. Rendered with **dashed** lines in §5.3
+hydrographs and labeled with the "GSP-adopted MT/MO" pill in the §5.3
+table.
 
-| Well | MT | MO | IM-2027 |
-|---|---|---|---|
-| 22N01W05M001M | 31 | 115 | 116 |
-| 23N01E07H001M | 72 | 136 | 140 |
-| 23N01E33A001M | 72 | 125 | 128 |
-| 23N01W36P001M | 45 | 108 | 110 |
-| 23N02W25C001M | 50 | 130 | 130 |
-| 20N02E24C001M | 18 | 77 | 81 |
-| 21N02E18C003M | 65 | 130 | 132 |
+| Well | Mgmt area | MT | MO | IM-2027 |
+|---|---|---|---|---|
+| 22N01W05M001M | North | 31 | 115 | 116 |
+| 23N01E07H001M | North | 72 | 136 | 140 |
+| 23N01E33A001M | North | 72 | 125 | 128 |
+| 23N01W36P001M | North | 45 | 108 | 110 |
+| 23N02W25C001M | North | 50 | 130 | 130 |
+| CWSCH01b | Chico | 85 | 106 | 107 |
+| CWSCH02 | Chico | 85 | 105 | 108 |
+| CWSCH03 | Chico | 85 | 108 | 109 |
+| CWSCH07 | Chico | 85 |  95 |  97 |
+| 22N01E28J003M | Chico | 85 | 111 | 113 |
+| 20N02E24C001M | South | 18 | 77 | 81 |
+| 21N02E18C003M | South | 65 | 130 | 132 |
+
+The 5 supplemental Chico nested completions (CWSCH04/05/06,
+22N01E28J001M/005M) are monitored but unthresholded, matching the 2022
+GSP convention.
 
 ### Source 2 — "2022 Mirror" (baseline pending GSA review, 21 wells)
 

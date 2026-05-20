@@ -77,6 +77,25 @@
     });
   }
 
+  // Resolve "the wells this polygon represents" depending on whether it's a
+  // Voronoi cell (per-well) or an aggregate polygon (e.g. dissolved Chico
+  // mgmt area in the 2026-05-19 network revision, which is associated with
+  // 10 specific well completions across two nested sites instead of one
+  // geographic seed).
+  function polygonWells(poly) {
+    if (poly.is_aggregate && Array.isArray(poly.rms_well_swns)) {
+      return poly.rms_well_swns
+        .map((swn) => WELLS.find((w) => w.swn === swn))
+        .filter(Boolean);
+    }
+    const inside = wellsInsidePolygon(poly);
+    if (poly.rms_well_swn && !inside.find((w) => w.swn === poly.rms_well_swn)) {
+      const seed = WELLS.find((w) => w.swn === poly.rms_well_swn);
+      if (seed) inside.unshift(seed);
+    }
+    return inside;
+  }
+
   // Pearson correlation coefficient
   function pearson(xs, ys) {
     const n = xs.length;
@@ -458,7 +477,12 @@
     sorted.forEach((p) => {
       const opt = document.createElement("option");
       opt.value = p.zone_label;
-      opt.textContent = `${p.mgmt_area_full.replace(/^0\d-/, "")}  ·  ${p.zone_label}`;
+      // Aggregate polygons (e.g. dissolved Chico mgmt area in the
+      // 2026-05-19 revision) supply their own display label since the
+      // zone_label by itself ("02-Vina-Chico") would be noise here.
+      opt.textContent = p.is_aggregate && p.rms_label
+        ? p.rms_label
+        : `${p.mgmt_area_full.replace(/^0\d-/, "")}  ·  ${p.zone_label}`;
       sel.appendChild(opt);
     });
     sel.addEventListener("change", () => selectPolygon(sel.value));
@@ -476,12 +500,11 @@
     const poly = RMS_POLYGONS.find((p) => p.zone_label === zoneLabel);
     if (!poly) return;
 
-    // Build well list (geographic PIP + always include the seed RMS)
-    const wellsInside = wellsInsidePolygon(poly);
-    if (!wellsInside.find((w) => w.swn === poly.rms_well_swn)) {
-      const seed = WELLS.find((w) => w.swn === poly.rms_well_swn);
-      if (seed) wellsInside.unshift(seed);
-    }
+    // Build well list. For aggregate polygons (Chico in the 2026-05-19
+    // revision), the wells are the explicit completions associated with
+    // the polygon, not a geographic PIP — Chico's territory contains many
+    // wells but only 10 are RMS for this network.
+    const wellsInside = polygonWells(poly);
     // Color each well using TRACE_COLORS, same order as hydrograph traces
     const wellsWithColor = wellsInside.map((w, i) => ({
       well: w,
@@ -489,9 +512,14 @@
     }));
 
     // Polygon header
-    const rmsList = wellsInside.filter((w) => w.is_2027_gwl_rms).map((w) => w.swn).join(", ") || poly.rms_well_swn;
+    const rmsList = wellsInside.filter((w) => w.is_2027_gwl_rms).map((w) => w.swn).join(", ")
+      || poly.rms_well_swn
+      || (poly.rms_well_swns || []).join(", ");
+    const headerTitle = poly.is_aggregate && poly.rms_label
+      ? `${poly.rms_label} — ${poly.mgmt_area_full} Management Area`
+      : `${poly.zone_label} — ${poly.mgmt_area_full} Management Area`;
     $("#poly-header").style.display = "block";
-    $("#poly-header-title").textContent = `${poly.zone_label} — ${poly.mgmt_area_full} Management Area`;
+    $("#poly-header-title").textContent = headerTitle;
     $("#poly-header-meta").textContent = `${wellsInside.length} well${wellsInside.length === 1 ? "" : "s"} in zone · ${poly.area_acres.toLocaleString()} acres`;
     $("#poly-header-smc").innerHTML = `<strong>2027 GWL RMS well${rmsList.includes(",") ? "s" : ""}:</strong> ${rmsList}`;
 
@@ -820,7 +848,7 @@
   function populateRMSPicker(poly) {
     const sel = $("#picker-rms");
     sel.innerHTML = "";
-    const insideWells = wellsInsidePolygon(poly);
+    const insideWells = polygonWells(poly);
     let rmsInside = insideWells.filter((w) => w.is_2027_gwl_rms);
     if (rmsInside.length === 0) {
       // Fall back to the seed well
@@ -852,7 +880,7 @@
 
     // Use the same well order (and colors) as §5.3 hydrograph
     const wellsWithColor = currentSelection?.wellsWithColor
-      || wellsInsidePolygon(poly).map((w, i) => ({ well: w, color: TRACE_COLORS[i % TRACE_COLORS.length] }));
+      || polygonWells(poly).map((w, i) => ({ well: w, color: TRACE_COLORS[i % TRACE_COLORS.length] }));
 
     const traces = [];
     const scatterTraceIndices = {};
