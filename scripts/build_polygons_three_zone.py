@@ -50,6 +50,7 @@ from shapely.ops import transform, unary_union
 ROOT = Path(__file__).resolve().parent.parent
 WELLS_JSON = ROOT / "data" / "wells_resolved.json"
 MGMT_AREAS = ROOT / "raw" / "vina_management_areas.geojson"
+BASIN_GEOJSON = ROOT / "raw" / "vina_subbasin.geojson"
 GEOJSON_OUT = ROOT / "data" / "vina_2027_thiessen_three_zone.geojson"
 JS_OUT = ROOT / "js" / "polygons-data-three-zone.js"
 
@@ -94,6 +95,14 @@ def load_mgmt_areas(to_albers):
         geom = shape(feat["geometry"])
         areas[ma] = transform(to_albers, geom)
     return areas
+
+
+def load_basin(to_albers):
+    """Return Vina Subbasin (DWR B118 5-021.57) polygon in Albers."""
+    fc = json.loads(BASIN_GEOJSON.read_text())
+    feat = fc["features"][0] if fc.get("type") == "FeatureCollection" else fc
+    geom = shape(feat["geometry"])
+    return transform(to_albers, geom)
 
 
 def voronoi_cells(boundary, seed_xy):
@@ -155,7 +164,9 @@ def main():
     to_albers = Transformer.from_crs(WGS84, ALBERS, always_xy=True).transform
     to_wgs = Transformer.from_crs(ALBERS, WGS84, always_xy=True).transform
     areas = load_mgmt_areas(to_albers)
+    basin = load_basin(to_albers)
     print(f"Loaded {len(areas)} management areas: {sorted(areas)}")
+    print(f"Basin: {basin.area/4046.8564224:,.0f} ac")
 
     # Group seeds by network assignment (rms_mgmt_area)
     by_net = {}
@@ -202,31 +213,50 @@ def main():
         "geometry": mapping(chico_boundary_wgs),
     })
 
-    # ---------------- NORTH: 13 VORONOI CELLS ------------------------
-    # Domain = North ∪ Chico so the 2 reassigned wells' cells can extend
-    # into Chico territory. The 2 Chico nested-site coordinates are added
-    # as PHANTOM Voronoi seeds to bound the 2 reassigned wells' cells from
-    # the south (otherwise they would sweep most of Chico). Cells for those
-    # phantom seeds are computed but discarded — Chico's territory is
-    # represented by the aggregate polygon emitted above.
+    # ---------------- NORTH: TWO VORONOI COMPUTATIONS -----------------
+    # Per 2026-05-19b user direction:
+    #   - 11 originally-North cells stop at the Chico mgmt-area boundary
+    #     (no overlap with Chico). They are clipped to (Basin - Chico -
+    #     South), which absorbs any sliver between mgmt-area boundaries
+    #     into the nearest cell so the basin coverage is contiguous.
+    #   - 2 reassigned wells (22N01E09B001M, 22N01E20K001M) get separate
+    #     small Voronoi cells INSIDE the Chico mgmt area, bounded by
+    #     phantom seeds at the CWSCH and 22N01E28J nested-site coords so
+    #     they don't sweep all of Chico.
     north_seeds = by_net.get("01-Vina-North", [])
-    north_domain = unary_union([areas["01-Vina-North"], areas["02-Vina-Chico"]])
+    originally_north = [s for s in north_seeds if not s["reassigned"]]
+    reassigned = [s for s in north_seeds if s["reassigned"]]
+    print(f"  North: {len(originally_north)} originally-N + {len(reassigned)} reassigned")
 
-    # Phantom seeds: collapse the 10 Chico nested-site completions to their
-    # distinct lat/lng (typically 2 sites, but compute defensively).
+    # 11 originally-N cells: Voronoi clipped to (Basin - Chico - South).
+    # That gives them the entire non-Chico, non-South portion of the basin,
+    # which absorbs slivers between mgmt-area boundaries into the nearest
+    # cell (rather than leaving a thin uncovered band).
+    north_domain = basin.difference(areas["02-Vina-Chico"]).difference(areas["03-Vina-South"])
+    originally_cells = voronoi_cells(
+        north_domain, [s["xy"] for s in originally_north]
+    )
+
+    # 2 reassigned cells: Voronoi over just the 2 wells + 2 phantom Chico
+    # nested-site coords, clipped to Chico mgmt area only. The phantoms keep
+    # the reassigned cells from sweeping all of Chico (they'd otherwise split
+    # Chico in halves). Phantom output cells are discarded.
     chico_sites = {}
     for s in chico_seeds:
         key = (round(s["lat"], 5), round(s["lon"], 5))
         chico_sites[key] = s["xy"]
     phantom_xy = list(chico_sites.values())
-    print(f"  Phantom seeds for North Voronoi: {len(phantom_xy)} Chico-site coords")
+    print(f"  Phantom seeds for reassigned-cell Voronoi: {len(phantom_xy)} Chico-site coords")
+    combined_xy = [s["xy"] for s in reassigned] + phantom_xy
+    combined_cells = voronoi_cells(areas["02-Vina-Chico"], combined_xy)
+    reassigned_cells = combined_cells[: len(reassigned)]
 
-    combined_xy = [s["xy"] for s in north_seeds] + phantom_xy
-    combined_cells = voronoi_cells(north_domain, combined_xy)
-    # Keep only the first len(north_seeds) cells; the rest are phantoms.
-    north_cells_albers = combined_cells[: len(north_seeds)]
-
-    for s, cell_alb in zip(north_seeds, north_cells_albers):
+    # Emit 11 + 2 = 13 North cells in workbook order
+    north_cells_pairs = (
+        list(zip(originally_north, originally_cells))
+        + list(zip(reassigned, reassigned_cells))
+    )
+    for s, cell_alb in north_cells_pairs:
         cell_wgs = transform(to_wgs, cell_alb)
         props = {
             "zone_label": s["swn"],
@@ -295,14 +325,21 @@ def main():
 
     # Coverage report
     print("\n=== Coverage report ===")
-    chico_overlap = unary_union(
-        [shape(f["geometry"]) for f in features
-         if f["properties"]["mgmt_area_full"] == "01-Vina-North"
-         and not f["properties"].get("is_aggregate")]
-    ).intersection(chico_boundary_wgs)
-    chico_overlap_ac = acres(transform(to_albers, chico_overlap))
-    print(f"  Chico mgmt area:        {chico_props['area_acres']:>10.1f} ac")
-    print(f"  ... overlapped by N cells: {chico_overlap_ac:>10.1f} ac (the 2 reassigned wells)")
+    n_features = [f for f in features
+                  if f["properties"]["mgmt_area_full"] == "01-Vina-North"
+                  and not f["properties"].get("is_aggregate")]
+    n_originally = unary_union(
+        [shape(f["geometry"]) for f in n_features
+         if not f["properties"].get("reassigned")]
+    )
+    n_reassigned = unary_union(
+        [shape(f["geometry"]) for f in n_features
+         if f["properties"].get("reassigned")]
+    )
+    n_originally_in_chico = n_originally.intersection(chico_boundary_wgs)
+    print(f"  Chico mgmt area:                 {chico_props['area_acres']:>10.1f} ac")
+    print(f"  ... overlapped by 2 reassigned: {acres(transform(to_albers, n_reassigned.intersection(chico_boundary_wgs))):>10.1f} ac (intentional overlay)")
+    print(f"  ... overlapped by 11 origin-N:  {acres(transform(to_albers, n_originally_in_chico)):>10.1f} ac (should be ~0)")
     for f in features:
         p = f["properties"]
         if p.get("is_aggregate"): continue
