@@ -455,6 +455,69 @@ revision).
 
 ---
 
+### 14. 2026-05-22 — Domestic-well overlay + MT sensitivity widget
+
+Added a "Show domestic wells" toggle to §5.2 and an MT sensitivity
+widget to §5.3, mirroring features from the cosmo
+[2022-RMS-Well-MT-Sensitivity](https://cosmo1007.github.io/2022-RMS-Well-MT-Sensitivity/)
+dashboard but built against our revised 2027 RMS network instead of
+the 2022 GSP one.
+
+**Data pull.** `scripts/fetch_cosmo_domestic_wells.py` downloads the
+cosmo `js/wells-data.js` bundle (3,212 wells, 1,253 with
+`include=1`), spatial-joins each well to our 2027 three-zone polygons
+(buffer(0) trick to clean minor topology issues in the clipped polys),
+and emits a pruned `js/domestic-wells-data.js` bundle (~1 MB,
+down from cosmo's 2 MB by dropping unused fields). Each well carries
+its `our_polygon` (2027 zone_label) and `our_mgmt_area`.
+
+**Map overlay.** New canvas-rendered Leaflet layer for performance
+with 1,253 markers; color-coded by mgmt area (blue/peach/green). New
+toggle in §5.2 controls; off by default. Markers are non-interactive
+(no per-well popup) to keep pan/zoom responsive.
+
+**Sensitivity widget.** A new `<div id="sensitivity-widget">` block
+in §5.3 after the hydrograph. Contains:
+- Slider 0–30 ft (`#mt-raise-slider`), 1-ft increments.
+- Toggle `#tog-elev-correction` for cosmo's one-sided elevation
+  correction.
+- 2-row sensitivity table: subbasin (n=1,253) and selected polygon.
+
+**Dry formula.**
+```
+gse_delta    = elev_correction ? max(0, domestic_gse - rms_gse) : 0
+effective_MT = polygon_MT + slider_raise + gse_delta
+dry          = (well_bottom_amsl > effective_MT)
+```
+Dry counts *decrease* as MT is raised (more conservative threshold
+= more water preserved = fewer wells lose pumping capacity).
+
+**Popup additions** for RMS well markers (function-content
+`bindPopup` so they recompute on each open):
+- "Dry domestic wells at MT (`N` ft): `X` of `Y` (`Z%`)"
+- "Dry at MT + `S` ft: `X'` of `Y` (`Z'%`)"
+
+**Sign convention** confirmed with Tovey: slider raises MT (more
+conservative); display reads "+N ft". Matches cosmo.
+
+**Implementation notes:**
+- All sensitivity calcs are pure functions over the cached
+  `DOMESTIC_BY_POLYGON` dict; no external recomputation needed when
+  the slider moves.
+- 23N01E33A001M and the 2 reassigned wells (22N01E09B001M,
+  22N01E20K001M) use their polygon's MT via `polygonMT()`, which
+  reads `is_aggregate ? rms_primary_swns[0] : rms_well_swn`.
+- The hydrograph adds a dashed orange "MT + N" line only when
+  slider > 0 AND the trace's well is the polygon's seed RMS.
+
+**Sibling repo:** The 2027-BC-storage dashboard reads our polygons
+but not the new domestic-wells bundle. No update needed there for
+this feature.
+
+Branch `domestic-wells-sensitivity`; cache-buster bumped to `?v=13`.
+
+---
+
 ## Key methodological decisions
 
 | Decision | What we chose | Why |
