@@ -561,18 +561,23 @@ higher local GWE to be wet, so its effective MT is the basin MT
 plus the elevation difference. Wells *lower* than their RMS well
 (more common) are not adjusted.
 
-**RMS well popup additions**. Clicking an RMS well marker now shows
-two extra lines:
+**RMS well popup additions**. Clicking an RMS well marker shows two
+extra lines (both independent of the sensitivity slider — the slider
+only drives the hydrograph and sensitivity table):
 
 - **Dry domestic wells at MT (`N` ft)**: count of dry domestic wells
-  inside this RMS well's polygon at the original MT (no slider raise,
-  honors elev-correction toggle).
-- **Dry at MT + `X` ft**: same, with the slider's current raise
-  applied. When the slider is at 0, this row reads "(no slider
-  adjustment)" and matches the line above.
+  inside this RMS well's polygon at the polygon's original MT, with
+  no elevation adjustment. Reference baseline.
+- **Dry at adjusted MT, based on well elevation**: count where each
+  domestic well's effective MT is shifted upward by
+  `max(0, domestic_gse − rms_gse)` if and only if the §5.3 "Adjust
+  threshold for each well's elevation" toggle is on. When the toggle
+  is off this line matches the line above (no per-well adjustment
+  applied); when on it shows the cosmo one-sided foothill correction.
 
-Popup content is recomputed fresh each time a popup opens, so it
-always reflects the current slider + elev-toggle state.
+Popup content is recomputed fresh each time a popup opens, so the
+adjusted-MT line always reflects the current elev-correction toggle
+state.
 
 ---
 
