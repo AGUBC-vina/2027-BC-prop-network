@@ -368,10 +368,17 @@
     const inheritNote = w.carryover_from
       ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> MT/MO/IM inherited from <code>${w.carryover_from}</code>, the 2022 GSP RMS at this same lat/lng (different completion depth).</div>`
       : "";
-    // Domestic-well dry counts at this RMS well's polygon, both unadjusted
-    // (at original MT) and adjusted (at MT + current slider value).
-    // Looked up live at popup-open time, so the popup reflects whatever the
-    // slider is set to at the moment of opening.
+    // Domestic-well dry counts at this RMS well's polygon. Two lines,
+    // both INDEPENDENT of the sensitivity slider (the slider drives the
+    // hydrograph + sensitivity table, not the popup):
+    //   1. Dry domestic wells at MT — count at the polygon's original MT
+    //      with no elevation adjustment. Always shown.
+    //   2. Dry at adjusted MT, based on well elevation — count when each
+    //      well's effective MT is shifted upward by max(0, well_gse - rms_gse)
+    //      ONLY when the "Adjust threshold for each well's elevation"
+    //      toggle is on. When the toggle is off, line 2 equals line 1
+    //      (no per-well adjustment applied) — same number, kept visible so
+    //      the toggle's effect is obvious when it's flipped.
     let domLine = "";
     if (w.is_2027_gwl_rms && typeof DOMESTIC_BY_POLYGON !== "undefined") {
       // Find the polygon for which this well is the (or a) RMS seed.
@@ -382,18 +389,19 @@
       if (poly) {
         const polyWells = DOMESTIC_BY_POLYGON[poly.zone_label] || [];
         if (polyWells.length > 0) {
-          const cAt = countDryDomestic(polyWells, w.mt_ft, w.gse != null ? +w.gse : null, 0, elevCorrectionOn);
-          const cAdj = countDryDomestic(polyWells, w.mt_ft, w.gse != null ? +w.gse : null, mtRaiseFt, elevCorrectionOn);
-          const adjLabel = mtRaiseFt > 0
-            ? `MT + ${mtRaiseFt} ft`
-            : "MT (no slider adjustment)";
+          const rmsGse = w.gse != null ? +w.gse : null;
+          // Line 1: original MT, no elevation correction, no slider raise.
+          const cAt = countDryDomestic(polyWells, w.mt_ft, rmsGse, 0, false);
+          // Line 2: elevation correction only when toggle is on; still no slider raise.
+          const cAdj = countDryDomestic(polyWells, w.mt_ft, rmsGse, 0, elevCorrectionOn);
+          const pct = (c) => c.total > 0 ? (100 * c.dry / c.total).toFixed(0) : "0";
           domLine =
             `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;">` +
-            `<div><b>Dry domestic wells at MT (${w.mt_ft} ft):</b> ${cAt.dry} of ${cAt.total} (${(100 * cAt.dry / cAt.total).toFixed(0)}%)</div>` +
-            `<div><b>Dry at ${adjLabel}:</b> ${cAdj.dry} of ${cAdj.total} (${(100 * cAdj.dry / cAdj.total).toFixed(0)}%)</div>` +
+            `<div><b>Dry domestic wells at MT (${w.mt_ft} ft):</b> ${cAt.dry} of ${cAt.total} (${pct(cAt)}%)</div>` +
+            `<div><b>Dry at adjusted MT, based on well elevation:</b> ${cAdj.dry} of ${cAdj.total} (${pct(cAdj)}%)</div>` +
             (elevCorrectionOn
-              ? `<div style="color:#888;font-size:11px;">(elevation correction on)</div>`
-              : `<div style="color:#888;font-size:11px;">(elevation correction off)</div>`) +
+              ? `<div style="color:#888;font-size:11px;">(elevation correction <b>on</b>)</div>`
+              : `<div style="color:#888;font-size:11px;">(elevation correction off — toggle on in §5.3 to apply)</div>`) +
             `</div>`;
         }
       }
