@@ -6,9 +6,9 @@ network in the Vina Subbasin (DWR B118 5-021.57), Butte County, California.
 Built from `BC Network 2026 v8.xlsx` and modeled on the
 [2022 RMS reference dashboard](https://cosmo1007.github.io/2022-rms-network/).
 
-> **2026-05-19 network revision (most recent: 2026-05-20).** The 2027
-> RMS network was restructured based on stakeholder input. The proposed
-> network is now **27 RMS wells (35 completions) across 26 polygons**:
+> **2026-05-19 network revision (most recent: 2026-05-21).** The 2027
+> RMS network has been progressively refined through stakeholder review.
+> The current state is **26 RMS wells across 26 polygons**:
 >
 > - **13 North** Voronoi cells. Three of the 13 RMS wells
 >   (`22N01E09B001M`, `22N01E20K001M`, `23N01E33A001M`) physically sit
@@ -17,18 +17,22 @@ Built from `BC Network 2026 v8.xlsx` and modeled on the
 >   cells sit north of the wells (in N proper), while the well markers
 >   themselves remain inside Chico. The 11 cells whose seed wells are
 >   physically in N tile the rest of the basin-minus-Chico-minus-South
->   region, absorbing any sliver between mgmt-area boundaries into the
->   adjacent cell.
-> - **1 dissolved Chico** mgmt-area polygon, associated with **2 nested
->   2022 GSP RMS sites** totaling 10 well completions: CWSCH 7-nest
->   (CWSCH01b/02/03/04/05/06/07) and 22N01E28J 3-nest (22N01E28J001M/
->   003M/005M). No Voronoi subdivision inside Chico.
+>   region, absorbing any sliver between mgmt-area boundaries.
+> - **1 dissolved Chico** mgmt-area polygon, with **CWSCH01b as the
+>   single RMS well** for the 2027 Chico network. The 9 other
+>   completions at the historical 2022 GSP nested sites — CWSCH 7-nest
+>   (CWSCH02/03/04/05/06/07) and 22N01E28J 3-nest (22N01E28J001M/003M/
+>   005M) — are now supplemental, plotted in §5.3 for hydrograph context
+>   but without threshold lines.
 > - **12 South** Voronoi cells, clipped to South mgmt area.
 >
-> The KPI strip and §5.2 lede count **27 RMS wells** by collapsing
-> nested completions to their site (each nest = 1 RMS designation). Total
-> polygons = 13 + 1 + 12 = 26. See "Method B" below and PROJECT_NOTES
-> for rationale and history.
+> **Threshold methodology (revised 2026-05-21):** 9 wells are direct
+> 2022 GSP carryovers (5 N, 3 S, 1 Chico = CWSCH01b); 17 wells get the
+> new **2022 Mirror** thresholds derived via the *MT Buffer Analysis*
+> described in the methodology section below. The 9 Chico supplementals
+> remain monitored but unthresholded.
+>
+> See "Method B" below and PROJECT_NOTES for full history.
 
 - **§5.2** — Interactive Leaflet map (basin boundary, 26 polygons,
   all 79 wells with layer toggles for 2022 RMS / 2027 RMS / supplemental).
@@ -339,93 +343,149 @@ The dashboard shows Sustainable Management Criteria (SMC) threshold lines on
 every 2027 RMS well's hydrograph. Values come from one of two sources, both
 expressed as **groundwater elevation in ft msl** (not depth-below-RPE):
 
-### Source 1 — "2022 GSP" (adopted, 12 wells)
+### Source 1 — "2022 GSP" (adopted, 9 wells)
 
-These are the **Minimum Threshold (MT)**, **Measurable Objective (MO)**, and
-**Interim Milestone for 2027 (IM-2027)** values carried over **unchanged**
-from the 2022 Vina GSP for the 12 wells (7 from the original 2027 RMS plus
-5 Chico primaries added in the 2026-05-19 revision) that are in both the
-2022 and 2027 RMS networks. Rendered with **dashed** lines in §5.3
+These are the **Minimum Threshold (MT)**, **Measurable Objective (MO)**,
+and **Interim Milestone for 2027 (IM-2027)** values carried over
+**unchanged** from the 2022 Vina GSP for the 9 wells that are in both
+the 2022 and 2027 RMS networks. Rendered with **dashed** lines in §5.3
 hydrographs and labeled with the "GSP-adopted MT/MO" pill in the §5.3
 table.
 
-| Well | Mgmt area | MT | MO | IM-2027 |
-|---|---|---|---|---|
-| 22N01W05M001M | North | 31 | 115 | 116 |
-| 23N01E07H001M | North | 72 | 136 | 140 |
-| 23N01E33A001M | North | 72 | 125 | 128 |
-| 23N01W36P001M | North | 45 | 108 | 110 |
-| 23N02W25C001M | North | 50 | 130 | 130 |
-| CWSCH01b | Chico | 85 | 106 | 107 |
-| CWSCH02 | Chico | 85 | 105 | 108 |
-| CWSCH03 | Chico | 85 | 108 | 109 |
-| CWSCH07 | Chico | 85 |  95 |  97 |
-| 22N01E28J003M | Chico | 85 | 111 | 113 |
-| 20N02E24C001M | South | 18 | 77 | 81 |
-| 21N02E18C003M | South | 65 | 130 | 132 |
+| Well | Mgmt area | MT | MO | IM-2027 | Notes |
+|---|---|---|---|---|---|
+| 22N01W05M001M | North | 31 | 115 | 116 | |
+| 23N01E07H001M | North | 72 | 136 | 140 | |
+| 23N01E33A001M | North | 72 | 125 | 128 | well location in Chico mgmt area |
+| 23N01W36P001M | North | 45 | 108 | 110 | |
+| 23N02W25C001M | North | 50 | 130 | 130 | |
+| 20N02E24C001M | South | 18 | 77 | 81 | |
+| 21N02E18C003M | South | 65 | 130 | 132 | |
+| 21N02E26E006M | South | 36 |  95 |  97 | inherits from `21N02E26E005M`, the 2022 GSP RMS at this same lat/lng (retired from 2027, different completion depth) |
+| CWSCH01b | Chico | 85 | 106 | 107 | the only RMS at the Chico aggregate; 9 nested-completion supplementals plot for context but are unthresholded |
 
-The 5 supplemental Chico nested completions (CWSCH04/05/06,
-22N01E28J001M/005M) are monitored but unthresholded, matching the 2022
-GSP convention.
+### Source 2 — "2022 Mirror" (new buffer-based methodology, 17 wells)
 
-### Source 2 — "2022 Mirror" (baseline pending GSA review, 21 wells)
+The other 17 wells in the 2027 RMS network were not RMS wells in 2022,
+so they have no carry-over GSP values. **As of the 2026-05-21 revision**,
+the Mirror baseline is derived from a regional **MT-buffer analysis** of
+the original 2022 GSP RMS network. This replaces the prior "MT ≈
+drought_min − 70" coefficient. Rendered with **dotted** lines in §5.3
+hydrographs and labeled with the "2022 mirror MT/MO" pill in the §5.3
+table.
 
-The other 21 wells in the 2027 RMS network were not RMS wells in 2022, so
-they have no carry-over GSP values. To give every polygon a usable baseline
-in the dashboard pending formal GSA action, this build computes
-**MT / MO / IM-2027** by mirroring the empirical pattern of the seven
-already-adopted thresholds.
+#### MT Buffer Analysis — the 2022 GSP RMS benchmark
 
-> **Proposed values mirror the empirical pattern of the adopted 2022
-> thresholds (MT ≈ 70 ft below drought minimum, MO ≈ drought minimum,
-> IM ≈ MO + 2 ft); formal derivation pending.**
+**Purpose.** For each well designated 2022 GWL RMS in the Vina GSP,
+calculate the buffer (in feet) between the GSP's per-well MT and the
+lowest QA-Good GWE on record. Aggregate by management area to produce
+a regional benchmark for how much historical headroom exists above the
+MT.
 
-Rendered with **dotted** lines in §5.3 hydrographs and labeled with the
-"2022 mirror MT/MO" pill in the §5.3 table.
+**Method.** For each 2022 GWL RMS well excluding the four CWSCH nested
+completions (CWSCH01b/02/03/07 — they share a single Chico pad and
+would skew aggregate statistics):
 
-**Formulas** (all in ft msl, rounded to nearest 1 ft):
+1. Pull the full DWR CKAN periodic-measurement record (resource
+   `bfa9f262-24a1-45bd-8dc8-138bc8107266`).
+2. Restrict to `QA = "Good"` readings (drop Questionable / Missing flags).
+3. Identify the all-time observed minimum GWE (`min_GWE`).
+4. Compute `buffer = min_GWE − MT` (feet). MT values are taken from the
+   2022 GSP / 2025 Annual Report.
+5. Average by mgmt area (North, South, Chico).
+
+**Data scope.** DWR CKAN periodic measurements through the dashboard's
+last refresh date. 13 RMS wells in the benchmark (17 designated 2022
+GWL RMS minus 4 CWSCH wells). Period of record and monitoring frequency
+vary by well — hourly transducer sites carry >20,000 Good readings;
+quarterly-monitoring sites carry as few as 14.
+
+**Results** (the regional benchmarks used to derive MT for the 17
+non-carryover wells):
+
+| Region | n RMS wells | Avg buffer (ft) | Range (ft) |
+|---|---:|---:|---|
+| Chico  | 1  | 27.93 | single well (22N01E28J003M) |
+| North  | 6  | 69.55 | 58.45 – 81.50 |
+| South  | 6  | 57.60 | 38.63 – 71.15 |
+| Overall | 13 | 60.83 | 27.93 – 81.50 |
+
+#### Applying the buffer to derive Mirror MT/MO/IM
+
+For each of the 17 non-carryover 2027 RMS wells:
 
 ```
-drought_min = min GWE recorded during 2012-2016 + 2020-2022 drought windows
-              (DWR Periodic Measurements, all QA flags)
+alltime_min = min GWE on the full DWR record, QA=Good only
+drought_min = min GWE during 2012-2016 + 2020-2022 drought windows
+region_buf  = regional buffer (69.55 N, 57.60 S, 27.93 Chico) — KEYED
+              ON GEOGRAPHIC mgmt_area_full, not the network assignment
 
-MT_ft       = round(drought_min − 70)
-MO_ft       = round(drought_min)
-IM_2027_ft  = round(MO + 2)
+MT_ft       = round(alltime_min − region_buf)
+MO_ft       = round(drought_min)         [unchanged from prior Mirror]
+IM_2027_ft  = round(drought_min + 2)     [unchanged from prior Mirror]
 ```
 
-**Why these coefficients?** Empirically, across the 7 adopted-threshold
-wells: MT_22 sits a mean of −68.5 ft (median −66 ft) below `drought_min`;
-MO_22 sits within ±6 ft of `drought_min` (mean offset effectively zero);
-IM_22 sits a mean of +2.3 ft above MO_22. The Mirror formulas round these
-to clean coefficients (−70 / 0 / +2).
+**Why use geographic mgmt area for the buffer?** The buffer reflects
+regional hydrology where the well physically sits, not the network-
+design assignment. So the 2 wells that are RMS for the North network
+but physically inside Chico mgmt area (`22N01E09B001M`,
+`22N01E20K001M`) use the Chico buffer (27.93 ft), giving them tight
+buffers consistent with their Chico hydrologic setting.
+
+**Why two different "low" bases for MT vs MO?** MT uses all-time min
+(matches the 2022 GSP MT-buffer benchmark exactly). MO uses
+drought-window min so MO retains a "measurable objective tied to
+drought-period hydrology" interpretation consistent with how the GSA
+treated MO in 2022.
 
 ### Caveats
 
 The Mirror methodology is a defensible interim baseline, not an adopted
-SMC. Specific limitations to flag in any external use:
+SMC. Specific limitations:
 
-- **No traceable derivation document for the 2022 GSP values.** AGUBC,
-  Butte County, and Vina GSA staff have searched for the methodology memo
-  that drove the original 2022 MT/MO/IM values; no documentation has
-  surfaced (it may have lived with a former consultant). The Mirror
-  approach is the most faithful empirical reconstruction available.
-- **All 21 Mirror wells have abundant drought-window data** (minimum 14
-  readings, most have 30+; nine continuous-logger wells have 1,000+
-  readings during the 2012-16 / 2020-22 windows). No well in the 2027
-  network triggers a low-drought-data flag. If a future RMS swap brings
-  in a well with <3 drought-window readings, the threshold for that well
-  should be flagged in the dashboard and reviewed before being plotted.
-- **One MT value is below mean sea level** — `21N01E13L004M` MT = −11 ft
-  msl. This is physically valid: its drought minimum is +59 ft msl with
-  a 353-ft-deep well that bottoms well below sea level, so −11 ft msl
-  is ~70 ft above the well bottom. Reviewers should confirm the value
-  visually but it is not a computational error.
+- **Buffer reflects the observed historical low, not the true low.**
+  Wells with short records or sparse monitoring may understate how low
+  water levels actually got. Buffers derived from such wells are
+  conservative (the buffer benchmark may be smaller than what would be
+  observed with more data).
+- **The Chico regional buffer (27.93 ft) comes from a single well**
+  (22N01E28J003M) after CWSCH exclusion. Thin coverage for a whole
+  management area — a caveat worth flagging in any downstream use of
+  the Chico average.
+- **Buffer is a descriptive statistic, not a margin of safety or
+  forward projection.** It does not account for drought severity,
+  climate change, or pumping trajectories. It is a backward-looking
+  measure of how close historical lows came to the GSP MT.
+- **No traceable derivation document for the 2022 GSP MT values.**
+  AGUBC, Butte County, and Vina GSA staff have searched for the
+  methodology memo that drove the original 2022 MT/MO/IM values; no
+  documentation has surfaced (it may have lived with a former
+  consultant). The buffer benchmark is the most faithful empirical
+  reconstruction available.
 - **The Mirror is NOT a request for GSA approval.** Adopted MT/MO/IM
   remain the 2022 GSP values until the GSA formally updates them in
   the 2027 GSP cycle. The Mirror exists solely to give the dashboard
   a complete set of comparison lines so every polygon's hydrograph can
   be evaluated in the same visual framework.
+
+### How to apply the buffer benchmark in other dashboards
+
+To use the regional averages as a reference benchmark in another
+dashboard, compute an "expected operating low GWE" from any well's MT:
+
+```
+expected_low_GWE = MT + region_avg_buffer
+```
+
+**Example.** A North-region RMS well with `MT = 50 ft msl` carries an
+expected operating low of `50 + 69.55 ≈ 119.55 ft msl` based on the
+regional buffer benchmark. Wells whose actual observed lows fall
+meaningfully below this benchmark (smaller buffers than peers) are
+candidates for closer attention in the next GSP periodic evaluation.
+
+For visualization, the benchmark can be drawn on a per-well hydrograph
+as a dashed horizontal line at `MT + region_avg_buffer`, alongside the
+existing MT / MO / IM-2027 reference lines.
 
 ### Rebuilding
 

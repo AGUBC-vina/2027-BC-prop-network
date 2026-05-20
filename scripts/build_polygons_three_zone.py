@@ -63,10 +63,12 @@ MA_SHORT = {
     "03-Vina-South": "South",
 }
 
-# Chico nested-site primaries that carry 2022 GSP thresholds (visible
-# in §5.3 hydrograph as dashed lines). The other 5 completions in those
-# nests are monitored but unthresholded (same convention as 2022 GSP).
-CHICO_PRIMARIES = {"CWSCH01b", "CWSCH02", "CWSCH03", "CWSCH07", "22N01E28J003M"}
+# Chico is represented as a single dissolved mgmt-area polygon with
+# **one RMS well** (CWSCH01b) and 9 supplemental nested completions at
+# the 2 historical 2022 GSP nested sites (CWSCH and 22N01E28J). The
+# supplementals are not is_2027_gwl_rms but they plot in the §5.3
+# hydrograph for context.
+CHICO_RMS_PRIMARIES = {"CWSCH01b"}
 
 
 def load_seeds():
@@ -185,22 +187,58 @@ def main():
     features = []
 
     # ---------------- CHICO: ONE DISSOLVED POLYGON ------------------
-    # Drawn FIRST so it sits at the back of the SVG; the 2 North cells
-    # that extend into Chico territory overlay on top.
-    chico_seeds = by_net.get("02-Vina-Chico", [])
-    chico_swns = sorted(s["swn"] for s in chico_seeds)
-    chico_primaries_present = [s for s in chico_swns if s in CHICO_PRIMARIES]
-    chico_supps = [s for s in chico_swns if s not in CHICO_PRIMARIES]
+    # 2026-05-21 revision: Chico has ONE RMS well (CWSCH01b). The 9
+    # other completions at the 2 historical 2022 GSP nested sites
+    # (CWSCH02–07 at one pad; 22N01E28J001M/003M/005M at the other)
+    # are supplemental — they plot in the §5.3 hydrograph for context
+    # but don't carry threshold lines. Identify those 9 supplementals
+    # by collapsing all Chico wells to (lat, lng) sites and picking up
+    # every well that shares a site with a CHICO_RMS_PRIMARIES member.
+    all_wells_raw = json.loads(WELLS_JSON.read_text())
+    chico_rms_swns = sorted(s["swn"] for s in by_net.get("02-Vina-Chico", []))
+    # Map lat/lng → wells at that location (Chico mgmt area only)
+    by_site = {}
+    for w in all_wells_raw:
+        if w["mgmt_area_full"] != "02-Vina-Chico":
+            continue
+        if w["latitude"] is None or w["longitude"] is None:
+            continue
+        key = (round(float(w["latitude"]), 5), round(float(w["longitude"]), 5))
+        by_site.setdefault(key, []).append(w["swn_or_name"])
+    # Find sites that host any HISTORICAL 2022 GSP RMS well (not current
+    # 2027 RMS). This pulls in the 22N01E28J 3-nest as Chico context
+    # even though only 22N01E28J003M (now supplemental) was 2022 RMS.
+    chico_2022_swns = {
+        w["swn_or_name"] for w in all_wells_raw
+        if w["mgmt_area_full"] == "02-Vina-Chico" and w["is_2022_gwl_rms"]
+    }
+    historical_rms_sites = {
+        key for key, swns in by_site.items()
+        if any(swn in chico_2022_swns for swn in swns)
+    }
+    chico_all_context_swns = sorted({
+        swn for key in historical_rms_sites for swn in by_site[key]
+    })
+    chico_supps = [s for s in chico_all_context_swns if s not in chico_rms_swns]
     chico_boundary_albers = areas["02-Vina-Chico"]
     chico_boundary_wgs = transform(to_wgs, chico_boundary_albers)
+    print(f"\nChico aggregate: {len(chico_rms_swns)} RMS ({chico_rms_swns}) + "
+          f"{len(chico_supps)} supplemental nested completions ({chico_supps})")
 
     chico_props = {
         "zone_label": "02-Vina-Chico",
         "rms_well_swn": None,
-        "rms_well_swns": chico_swns,
-        "rms_primary_swns": chico_primaries_present,
+        # rms_well_swns includes ALL 10 context wells (1 RMS + 9 nested
+        # supplementals) so the dashboard's polygonWells() helper finds
+        # them all for the §5.3 hydrograph. Only CWSCH01b is is_2027_gwl_rms.
+        "rms_well_swns": chico_all_context_swns,
+        "rms_primary_swns": list(chico_rms_swns),
         "rms_supplemental_swns": chico_supps,
-        "rms_label": f"Chico  ·  {len(chico_swns)} completions across 2 nested sites",
+        "rms_label": (
+            f"Chico  ·  CWSCH01b (RMS) + {len(chico_supps)} nested supplemental completions"
+            if len(chico_rms_swns) == 1 else
+            f"Chico  ·  {len(chico_all_context_swns)} completions at 2 nested sites"
+        ),
         "mgmt_area_full": "02-Vina-Chico",
         "mgmt_area": "Chico",
         "is_aggregate": True,

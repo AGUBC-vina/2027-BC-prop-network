@@ -383,6 +383,76 @@ Branch: `2027-network-revision` (continuing); cache-buster bumped to
 
 ---
 
+### 13. 2026-05-21 — Chico = 1 RMS (CWSCH01b); new MT-buffer methodology for non-carryovers
+
+Two big updates rolled in together:
+
+**Chico shrinks to one RMS well.** Per Tovey's review, the Chico
+management area now has only ONE RMS designation for the 2027 network:
+`CWSCH01b`. The 9 other completions at the 2 historical 2022 GSP
+nested sites — CWSCH02/03/04/05/06/07 and 22N01E28J001M/003M/005M —
+become **supplemental** (not is_2027_gwl_rms). The Chico dissolved
+polygon still plots all 10 wells in §5.3 (CWSCH01b RMS + 9 supplemental
+nested completions) for hydrograph context, but only CWSCH01b carries
+threshold lines.
+
+This drops the network to **26 RMS wells across 26 polygons**:
+
+| Mgmt area (network) | 2022 carryover | New Mirror | Total |
+|---|---:|---:|---:|
+| 01-Vina-North | 5 | 8 | 13 |
+| 02-Vina-Chico | 1 (CWSCH01b) | 0 | 1 |
+| 03-Vina-South | 3 | 9 | 12 |
+| **Total** | **9** | **17** | **26** |
+
+A new well joined the carryover set: `21N02E26E006M` (South). It wasn't
+a 2022 GSP RMS itself, but it's at the same lat/lng as `21N02E26E005M`
+(the 2022 RMS at that nested site, retired from 2027). The 006M
+completion inherits 005M's 2022 GSP MT/MO/IM (36 / 95 / 97 ft msl) via
+a new `carryover_from` field in `wells_resolved.json`. The dashboard
+popup surfaces the inheritance explicitly.
+
+**New "2022 Mirror" methodology — MT buffer analysis.** Replaces the
+prior `MT ≈ drought_min − 70` coefficient. The new approach:
+
+1. For the 13 2022 GSP RMS wells (excluding 4 CWSCH nested completions
+   that would skew the average), compute
+   `per_well_buffer = all_time_min_QA_Good_GWE − adopted_2022_MT`.
+2. Average by management area:
+   - North: **69.55 ft** (n=6, range 58.45–81.50)
+   - South: **57.60 ft** (n=6, range 38.63–71.15)
+   - Chico: **27.93 ft** (n=1, single well: 22N01E28J003M)
+3. For each of the 17 non-carryover 2027 RMS wells, derive:
+   ```
+   MT_ft = round(alltime_min − region_buffer)
+   MO_ft = round(drought_min)        [unchanged from prior Mirror]
+   IM_ft = round(drought_min + 2)    [unchanged from prior Mirror]
+   ```
+   `region_buffer` is keyed on **geographic** `mgmt_area_full` (not the
+   network assignment), so the 2 N-network wells located in Chico
+   (22N01E09B001M, 22N01E20K001M) use the Chico buffer (27.93 ft).
+
+**MT vs MO use different "low" bases by design.** MT uses all-time min
+to match the 2022 GSP MT-buffer benchmark exactly. MO stays on
+drought-window min so the "measurable objective" retains its tie to
+drought-period hydrology.
+
+**Implementation:** `scripts/compute_thresholds.py` was rewritten to
+encode the new methodology; `data/thresholds_2022.json` is unchanged
+(the carryover source of truth); `wells_resolved.json` carries the
+new `carryover_from` field; `build_polygons_three_zone.py` reduces the
+Chico aggregate to 1 RMS + 9 supplementals (identified by collapsing
+to lat/lng sites and pulling any site that hosted a 2022 GSP RMS,
+which preserves the 22N01E28J site even though 003M is now
+supplemental); `build_wells_js.py` surfaces `carryover_from` in
+wells-data.js; `main.js` adds an inheritance note to the well popup.
+
+**Cache-buster** bumped to `?v=11` for changed JS bundles. Branch:
+direct commits to `main` (working tree on `main` since the 2026-05-21
+revision).
+
+---
+
 ## Key methodological decisions
 
 | Decision | What we chose | Why |
