@@ -84,7 +84,17 @@ GitHub Pages, S3, or open `index.html` directly.
     └── build_readme_js.py                  README.md -> readme-data.js
 ```
 
-## How the 28 Thiessen polygons are built
+## How the polygons are built
+
+> **Note (2026-05-19 revision).** The current three-zone method produces
+> **26 polygons anchored by 27 RMS wells** (13 North Voronoi cells,
+> 1 dissolved Chico mgmt-area polygon associated with 2 nested RMS sites
+> totaling 10 well completions, and 12 South Voronoi cells). The single
+> tessellation method still produces 28 cells, one per `is_2027_gwl_rms`
+> well in the workbook. The discussion below was written for that
+> 28-cell framing; it remains accurate for the single method, and most
+> of it still applies to three-zone except where called out in "Method
+> B" below.
 
 A Thiessen polygon (aka Voronoi cell) for a point is the locus of points in
 space that are closer to that point than to any other point in the seed set.

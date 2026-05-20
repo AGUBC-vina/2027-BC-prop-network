@@ -117,9 +117,16 @@
   /* -------------- KPI row ----------------------------------------------- */
   function renderKPIs() {
     const n = WELLS.length;
-    const n2027 = WELLS.filter((w) => w.is_2027_gwl_rms).length;
+    // Count RMS "sites" (distinct lat/lng) not raw is_2027_gwl_rms entries,
+    // so nested Chico completions (CWSCH ×7 at one site, 22N01E28J ×3 at
+    // another) collapse to 2 sites rather than inflating the count to 10.
+    // The 2026-05-19 network framing is "27 RMS wells across 26 polygons".
+    const rmsSites = new Set(
+      WELLS.filter((w) => w.is_2027_gwl_rms && w.latitude != null && w.longitude != null)
+        .map((w) => `${(+w.latitude).toFixed(5)}|${(+w.longitude).toFixed(5)}`)
+    );
     $("#kpi-wells").textContent = n;
-    $("#kpi-rms-2027").textContent = n2027;
+    $("#kpi-rms-2027").textContent = rmsSites.size;
     $("#kpi-poly").textContent = RMS_POLYGONS.length;
 
     // Data freshness from MEASUREMENTS metadata if available
