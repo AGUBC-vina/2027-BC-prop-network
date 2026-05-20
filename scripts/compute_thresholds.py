@@ -83,7 +83,7 @@ IM_OFFSET = 2    # IM = drought_min + 2
 LOW_DATA_THRESHOLD = 3  # fewer than this many drought-window readings = flag
 
 # Regional MT buffers from the 2022 GSP buffer analysis (see module docstring).
-# Keys are the geographic mgmt_area_full attribute on each well.
+# Keys are the rms_mgmt_area (network) attribute on each well.
 REGIONAL_BUFFER_FT = {
     "01-Vina-North": 69.55,
     "03-Vina-South": 57.60,
