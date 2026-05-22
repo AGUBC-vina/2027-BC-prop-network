@@ -349,8 +349,10 @@ table.
 
 ### Source 2 — "AGWL Mirror" (Feb–April AGWL methodology, 17 wells)
 
+AGWL Mirror has been developed to faithfully recreate MT/MO/IMs for new polygons that effectively mirror what was adopted in 2022.
+
 The other 17 wells in the 2027 RMS network were not RMS wells in 2022,
-so they have no carry-over GSP values. The **AGWL Mirror** baseline 
+so they have no carry-over GSP values. The **AGWL Mirror** baseline
 derives each well's MT/MO/IM from its own average
 Feb–April groundwater level and a per-management-area offset calibrated
 against the 2022 GSP MT/MO/IM. Rendered with **dotted** lines in §5.3
@@ -485,8 +487,6 @@ SMC. Specific limitations:
   climate change, or pumping trajectories. They are a backward-looking
   calibration of how the GSA's 2022 MT/MO/IM relate to typical spring
   groundwater levels at the 2022 RMS wells.
-- **The AGWL Mirror is the most faithful
-  empirical reconstruction available given that constraint.**
 - **The Mirror is NOT a request for GSA approval.** Adopted MT/MO/IM
   remain the 2022 GSP values until the GSA formally updates them in
   the 2027 GSP cycle. The Mirror exists solely to give the dashboard
