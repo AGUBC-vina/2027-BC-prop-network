@@ -7,7 +7,7 @@ new columns after the existing data:
     W: MT_ft
     X: MO_ft
     Y: IM_2027_ft
-    Z: Threshold_Source     ("2022 GSP" | "2022 Mirror" | blank for non-RMS)
+    Z: Threshold_Source     ("2022 GSP" | "AGWL Mirror" | blank for non-RMS)
 
 Values are populated for the 30 thresholded 2027 RMS completions (out of
 35 flagged is_2027_gwl_rms); 5 supplemental Chico nested completions and
@@ -32,15 +32,22 @@ def main():
     if not backup_path.exists():
         shutil.copy2(XLSX, backup_path)
         print(f"Backed up original to {backup_path}")
+    else:
+        # Restore from backup before writing so the script is idempotent —
+        # re-runs always produce the same output rather than appending new
+        # threshold column blocks each time.
+        shutil.copy2(backup_path, XLSX)
+        print(f"Restored {XLSX.name} from backup before writing")
 
     thresholds = {t["swn"]: t for t in json.loads(THRESH_JSON.read_text())}
 
     wb = openpyxl.load_workbook(XLSX)
     ws = wb["Monitoring Network - 2027 (BC)"]
 
-    # Header row is row 1; first new column = current max + 1
+    # After backup-restore, the workbook has 22 metadata columns; append
+    # the 4 threshold columns starting at the next position.
     first_new_col = ws.max_column + 1
-    print(f"Adding columns starting at column {first_new_col} ({openpyxl.utils.get_column_letter(first_new_col)})")
+    print(f"Writing threshold columns starting at column {first_new_col} ({openpyxl.utils.get_column_letter(first_new_col)})")
 
     header_font = Font(bold=True)
     headers = ["MT_ft", "MO_ft", "IM_2027_ft", "Threshold_Source"]
@@ -78,7 +85,7 @@ def main():
     wb.save(XLSX)
     print(f"Updated {XLSX}")
     print(f"  Wrote {n_adopted} '2022 GSP' rows (adopted carry-overs)")
-    print(f"  Wrote {n_mirror} '2022 Mirror' rows (computed baselines)")
+    print(f"  Wrote {n_mirror} 'AGWL Mirror' rows (computed baselines)")
     print(f"  Total: {n_adopted + n_mirror} threshold rows populated")
 
 
