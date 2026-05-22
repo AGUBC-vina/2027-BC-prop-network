@@ -518,6 +518,57 @@ Branch `domestic-wells-sensitivity`; cache-buster bumped to `?v=13`.
 
 ---
 
+### 15. 2026-05-21 — AGWL Mirror methodology adopted; supersedes buffer-based Mirror
+
+BCWRC staff (Christina Buck) proposed a new methodology for deriving
+MT/MO/IM for the 17 non-carryover 2027 RMS wells, anchored on each
+well's average spring groundwater level rather than its all-time min.
+After a three-variant sensitivity comparison (Feb–May / Feb–April /
+Highest March), staff selected the **Feb–April AGWL Mirror** approach
+on 2026-05-21 for the dashboard.
+
+**Formula** (per well, applied to MT, MO, and IM-2027):
+
+```
+AGWL_well = mean of QA-Good GWE in Feb/Mar/Apr months across full record
+zone_offset = mean over 2022 RMS wells in same network zone of
+              (AGWL_RMS − threshold_2022_RMS)
+threshold_new = round(AGWL_well − zone_offset)
+```
+
+**Zone offsets (Feb–April):** North 91.0 / Chico 43.2 / South 92.1 for
+MT; smaller offsets for MO and IM (see `analysis/methodology_mt_mo_im.md`).
+
+**What changed in the data.** All 17 new RMS wells got fresh MT/MO/IM
+values. Some MTs raised (shallower DBS = more protective), some
+lowered, average per-zone shift modest. The 9 carryover wells were
+NOT touched — they keep their adopted 2022 GSP MT/MO/IM unchanged.
+
+**Source label changed** from `"2022 Mirror"` → `"AGWL Mirror"` in
+`thresholds.json`, `wells-data.js`, the §5.3 pill text, popup tooltips,
+and the workbook column. The CSS pill class `pill-thr-mirror` was
+kept (stable internal identifier).
+
+**Analysis artifacts** added under `analysis/`:
+- `methodology_mt_mo_im.md` — standalone explainer of the adopted methodology
+- `agwl_window_comparison.md` — three-variant sensitivity comparison
+- `christina_methodology_summary.md` — original summary prepared for Christina, May 2026
+- `christina_mt_comparison.md` — earlier detailed comparison (pre-variant work)
+
+**Comparison scripts** added under `scripts/` (read-only, do not modify
+dashboard outputs):
+- `compute_thresholds.py` — rewritten in place to AGWL Mirror methodology
+- `compare_agwl_windows.py` — three-variant sensitivity comparison
+- `compare_christina_mt.py` — earlier baseline-vs-Christina comparison
+
+**Sibling repo `2027-BC-storage`:** uses water-level deltas, not MT, so
+no update needed there for this change.
+
+Branch `agwl-mirror-methodology`; cache-buster bumped to `?v=15` (main.js
+and readme-data.js) and `?v=13` (wells-data.js).
+
+---
+
 ## Key methodological decisions
 
 | Decision | What we chose | Why |

@@ -814,12 +814,12 @@
       // Values are groundwater ELEVATIONS in ft msl, NOT depth-below-RPE.
       // Two sources are distinguished in the legend and line style:
       //   "2022 GSP"    — adopted carry-over (dashed, solid name)
-      //   "2022 Mirror" — empirical baseline pending GSA review
-      //                   (dotted line, "(2022 mirror)" suffix in legend)
+      //   "AGWL Mirror" — Feb-April AGWL-anchored baseline pending GSA review
+      //                   (dotted line, "(AGWL mirror)" suffix in legend)
       if (w.is_2027_gwl_rms) {
         const gse = w.gse != null ? +w.gse : null;
-        const isMirror = w.threshold_source === "2022 Mirror";
-        const sourceSuffix = isMirror ? " (2022 mirror)" : "";
+        const isMirror = w.threshold_source === "AGWL Mirror";
+        const sourceSuffix = isMirror ? " (AGWL mirror)" : "";
         const addThr = (val, label, lineColor, dashAdopted, dashMirror) => {
           if (val == null) return;
           let y, unitLabel;
@@ -1000,10 +1000,10 @@
       let thresholdPill = "";
       if (w.is_2027_gwl_rms && w.threshold_source) {
         const cls = w.threshold_source === "2022 GSP" ? "pill-thr-gsp" : "pill-thr-mirror";
-        const label = w.threshold_source === "2022 GSP" ? "GSP-adopted MT/MO" : "2022 mirror MT/MO";
+        const label = w.threshold_source === "2022 GSP" ? "GSP-adopted MT/MO" : "AGWL mirror MT/MO";
         const tip = w.threshold_source === "2022 GSP"
           ? "Thresholds carried over unchanged from the adopted 2022 Vina GSP."
-          : "Baseline thresholds derived from the empirical 2022 GSP pattern (MT = drought_min − 70 ft, MO = drought_min, IM = MO + 2 ft). Pending GSA review.";
+          : "Baseline thresholds derived from each well's average Feb-April groundwater level, anchored to the per-zone offset between AGWL and adopted 2022 GSP MT/MO/IM (Christina Buck AGWL Mirror methodology). Pending GSA review.";
         thresholdPill = ` <span class="pill ${cls}" title="${tip}">${label}</span>`;
       }
       const bcReason = (w.butte_co_reasoning || "").trim();

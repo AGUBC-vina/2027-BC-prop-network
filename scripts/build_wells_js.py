@@ -4,7 +4,7 @@ Joins:
     - data/wells_resolved.json   (every xlsx row, with DWR site_code)
     - data/thresholds.json       (MT/MO/IM-2027 for 30 of the 35 2027 RMS
                                   completions: 12 "2022 GSP" carry-overs +
-                                  18 "2022 Mirror" baselines computed by
+                                  17 "AGWL Mirror" baselines computed by
                                   scripts/compute_thresholds.py; 5 supplemental
                                   Chico nested completions are unthresholded
                                   per 2022 GSP convention)
@@ -17,7 +17,7 @@ Output schema (one element per well in the xlsx):
     butte_co_reasoning,
     bbgm_loc_id, bbgm_aqu_layer, bbgm_calib_resid_ft, bbgm_source,
     mt_ft, mo_ft, im_2027_ft,
-    threshold_source     ("2022 GSP" | "2022 Mirror" | null for non-RMS)
+    threshold_source     ("2022 GSP" | "AGWL Mirror" | null for non-RMS)
     threshold_low_data   (true if <3 drought-window readings)
 """
 import json
@@ -82,7 +82,7 @@ def main():
             "mo_ft": thresh.get("mo_ft"),
             "im_2027_ft": thresh.get("im_2027_ft"),
             "threshold_source": thresh.get("source") if thresh else None,
-            "threshold_low_data": thresh.get("low_drought_data", False) if thresh else False,
+            "threshold_low_data": thresh.get("low_spring_data", False) if thresh else False,
         }
         out.append(rec)
 
