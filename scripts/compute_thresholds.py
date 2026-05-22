@@ -1,7 +1,9 @@
 """Build data/thresholds.json — MT/MO/IM-2027 for the 2027 RMS network.
 
-Post-2026-05-21 revision: two distinct methodologies depending on whether
-the well was an RMS in the 2022 GSP.
+Post-2026-05-21 revision: AGWL Mirror methodology (Christina Buck, BCWRC).
+Replaces the prior buffer-based "2022 Mirror" methodology.
+
+Two distinct paths depending on whether the well was an RMS in the 2022 GSP:
 
 (A) 2022 GSP carryovers (9 wells) — values unchanged from the 2022 GSP:
     - 5 North: 22N01W05M001M, 23N01E07H001M, 23N01E33A001M,
@@ -10,65 +12,69 @@ the well was an RMS in the 2022 GSP.
       from its nested sibling 21N02E26E005M, same lat/lng)
     - 1 Chico: CWSCH01b
 
-(B) New 2022 Mirror methodology (17 wells: 8 N + 9 S) — derived from a
-    MT-buffer benchmark computed against the original 2022 GSP RMS wells.
+(B) AGWL Mirror (17 new wells: 8 N + 9 S) — derived from a zone-average
+    offset between AGWL and the 2022 GSP MT/MO/IM at the 2022 RMS wells.
 
-    Step 1 (benchmark) — for each of the 13 well-level 2022 GSP RMS sites
-    (17 designated minus 4 CWSCH nested completions that share a single
-    pad and would skew aggregate statistics), compute:
+    Step 1 — for each 2022 RMS well, compute:
+        AGWL = mean of QA-Good GWE measurements falling in Feb, Mar, Apr
+               months across the full DWR record.
+        ΔGWL→MT = AGWL - MT_2022_RMS
+        ΔGWL→MO = AGWL - MO_2022_RMS
+        ΔGWL→IM = AGWL - IM_2022_RMS
 
-        per_well_buffer = (all-time min QA-Good GWE) - (2022 GSP MT)
+    Step 2 — average per management area:
+        Region    n RMS used   AveΔGWL→MT (ft)
+        North     6            ~91
+        South     6            ~92
+        Chico     5            ~43  (all 4 CWSCH + 22N01E28J003M)
 
-    Average by management area:
-        Region    n   avg buffer (ft)
-        North     6   69.55
-        South     6   57.60
-        Chico     1   27.93  (single well: 22N01E28J003M)
+    Step 3 — for each non-carryover 2027 RMS well:
+        AGWL_well  = same Feb-April mean over the well's full record
+        zone       = well's NETWORK assignment (rms_mgmt_area; falls back
+                     to mgmt_area_full if not overridden)
+        MT_ft      = round(AGWL_well - AveΔGWL→MT_zone)
+        MO_ft      = round(AGWL_well - AveΔGWL→MO_zone)
+        IM_2027_ft = round(AGWL_well - AveΔGWL→IM_zone)
 
-    Step 2 — for each non-carryover 2027 RMS well, derive:
-        alltime_min  = min QA-Good GWE on the FULL DWR record
-        region_buf   = regional buffer for the well's GEOGRAPHIC mgmt area
-                       (N=69.55, S=57.60, Chico=27.93)
-        MT_ft        = round(alltime_min - region_buf)
-        MO_ft        = round(drought_min)                    [unchanged]
-        IM_2027_ft   = round(drought_min + 2)                [unchanged]
+    Notes on zone keying:
+    - Zone offsets for new wells use rms_mgmt_area, not geographic
+      mgmt_area_full. The 2 wells that are RMS for the North network but
+      physically inside Chico (22N01E09B001M, 22N01E20K001M) use the
+      North zone offsets, consistent with their network role.
+    - Chico zone offset is computed for documentation but is not applied
+      to any well in the 2027 network. The only Chico RMS (CWSCH01b) is
+      a carryover. No new RMS wells are assigned to the Chico network.
 
-    Notes on choice of mgmt area for the buffer (revised 2026-05-21b):
-    - Buffer is keyed on the well's NETWORK assignment (rms_mgmt_area),
-      not its geographic mgmt_area_full. So the 2 wells that are RMS for
-      the North network but physically inside Chico mgmt area
-      (22N01E09B001M, 22N01E20K001M) use the North buffer (69.55 ft),
-      consistent with their role as North RMS wells.
-    - Rationale: these wells are designated as North RMS because they
-      represent North conditions for the 2027 network. The buffer they
-      should be benchmarked against is the North regional buffer, not the
-      Chico one. (Earlier draft used geographic mgmt area; corrected.)
+    Notes on spring window (Feb-April):
+    - Selected by BCWRC staff after reviewing the three-variant
+      sensitivity analysis (Feb-May, Feb-April, Highest March) in
+      analysis/agwl_window_comparison.md.
+    - Captures spring conditions weighted toward post-recharge /
+      pre-pumping. Excludes May, which tends to show declines from
+      evapotranspiration onset.
 
 Source labels in the output:
     "2022 GSP"     — adopted carryovers (9 wells). Visualized with dashed
                      threshold lines and a blue pill in §5.3.
-    "2022 Mirror"  — new buffer-based derivation (17 wells). Visualized
+    "AGWL Mirror"  — new AGWL-based derivation (17 wells). Visualized
                      with dotted threshold lines and a warm-cream pill.
 
 Caveats baked into the README/PROJECT_NOTES:
-- All-time min reflects the OBSERVED historical low, not the true low.
-  Wells with short records or sparse monitoring may understate how low
-  the water level actually got — buffers derived from such wells should
-  be considered conservative.
-- The Chico regional buffer (27.93 ft) comes from a single well
-  (22N01E28J003M) after CWSCH exclusion. Thin coverage for a whole
-  management area.
-- Buffer is a descriptive statistic, not a margin of safety or forward
-  projection. It does not account for drought severity, climate change,
-  or pumping trajectories.
+- AGWL reflects the OBSERVED Feb-April record. Wells with short records
+  or sparse monitoring may understate or overstate typical conditions —
+  estimates from such wells should be considered conservative.
+- The dry-well count at MT shown elsewhere in the dashboard is a
+  sensitivity snapshot, not a forecast. The subbasin manages to MO, not
+  MT. Observed dry wells through both 2014-25 droughts: ~35.
 - Adopted MT/MO/IM remain the 2022 GSP values until the GSA formally
   updates them in the 2027 GSP cycle. The Mirror remains an internal
-  working baseline.
+  working baseline for the dashboard.
 """
 from __future__ import annotations
 
 import json
 import re
+import statistics
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -77,18 +83,8 @@ CARRYOVER_JSON = ROOT / "data" / "thresholds_2022.json"
 MEAS_JS = ROOT / "js" / "measurements-data.js"
 OUT = ROOT / "data" / "thresholds.json"
 
-DROUGHT_WINDOWS = [(2012, 2016), (2020, 2022)]
-IM_OFFSET = 2    # IM = drought_min + 2
-
-LOW_DATA_THRESHOLD = 3  # fewer than this many drought-window readings = flag
-
-# Regional MT buffers from the 2022 GSP buffer analysis (see module docstring).
-# Keys are the rms_mgmt_area (network) attribute on each well.
-REGIONAL_BUFFER_FT = {
-    "01-Vina-North": 69.55,
-    "03-Vina-South": 57.60,
-    "02-Vina-Chico": 27.93,
-}
+SPRING_MONTHS = {2, 3, 4}  # Feb, March, April — staff-selected window
+LOW_DATA_THRESHOLD = 5     # fewer than this many spring readings = flag
 
 
 def load_measurements() -> dict:
@@ -99,8 +95,8 @@ def load_measurements() -> dict:
     return json.loads(m.group(1))
 
 
-def filter_qa_good(records: list[dict]) -> list[dict]:
-    """QA-Good readings only."""
+def qa_good(records: list[dict]) -> list[dict]:
+    """QA-Good readings with non-null GWE."""
     return [
         r for r in records
         if r.get("gwe") is not None
@@ -109,25 +105,96 @@ def filter_qa_good(records: list[dict]) -> list[dict]:
     ]
 
 
-def drought_records(records: list[dict]) -> list[dict]:
-    out = []
-    for r in records:
-        if r.get("gwe") is None:
-            continue
-        try:
-            y = int(r["d"][:4])
-        except (KeyError, ValueError):
-            continue
-        if any(y0 <= y <= y1 for y0, y1 in DROUGHT_WINDOWS):
-            out.append(r)
-    return out
+def month_of(r: dict) -> int | None:
+    try:
+        return int(r["d"][5:7])
+    except (KeyError, ValueError, IndexError):
+        return None
 
 
-def main():
+def spring_records(records: list[dict]) -> list[dict]:
+    """QA-Good GWE in Feb-April months across all years."""
+    return [r for r in qa_good(records) if month_of(r) in SPRING_MONTHS]
+
+
+def agwl_for_site(meas: dict, site_code: str) -> tuple[float | None, int]:
+    """Returns (AGWL_Feb-April, n_measurements) for a site_code."""
+    recs = spring_records(meas.get(site_code, []))
+    if not recs:
+        return None, 0
+    return statistics.mean(r["gwe"] for r in recs), len(recs)
+
+
+def compute_zone_offsets(
+    wells: list[dict],
+    wells_by_swn: dict,
+    carry_by_swn: dict,
+    meas: dict,
+) -> tuple[dict, dict]:
+    """Compute AveΔGWL_MT/_MO/_IM per management area from the 2022 RMS wells.
+
+    Returns:
+        zone_offsets: dict[zone_name -> {'ave_delta_mt', '_mo', '_im',
+                                          'n_wells', 'ave_agwl'}]
+        rms_2022_detail: dict[swn -> {'agwl', 'mt22', 'mo22', 'im22',
+                                       'delta_mt', '_mo', '_im', 'n_obs'}]
+            Used downstream for diagnostic printing.
+    """
+    rms_2022_by_zone: dict[str, list[str]] = {}
+    for w in wells:
+        if w.get("is_2022_gwl_rms"):
+            rms_2022_by_zone.setdefault(w["mgmt_area_full"], []).append(w["swn_or_name"])
+
+    rms_2022_detail: dict[str, dict] = {}
+    for zone, swns in rms_2022_by_zone.items():
+        for swn in swns:
+            w = wells_by_swn[swn]
+            t22 = carry_by_swn.get(swn)
+            agwl, n = agwl_for_site(meas, w["site_code"])
+            rec = {
+                "zone": zone, "agwl": agwl, "n_obs": n,
+                "mt22": t22["mt_ft"] if t22 else None,
+                "mo22": t22["mo_ft"] if t22 else None,
+                "im22": t22["im_2027_ft"] if t22 else None,
+            }
+            rec["delta_mt"] = (agwl - rec["mt22"]) if (agwl is not None and rec["mt22"] is not None) else None
+            rec["delta_mo"] = (agwl - rec["mo22"]) if (agwl is not None and rec["mo22"] is not None) else None
+            rec["delta_im"] = (agwl - rec["im22"]) if (agwl is not None and rec["im22"] is not None) else None
+            rms_2022_detail[swn] = rec
+
+    zone_offsets: dict[str, dict] = {}
+    for zone, swns in rms_2022_by_zone.items():
+        d_mt = [rms_2022_detail[s]["delta_mt"] for s in swns if rms_2022_detail[s]["delta_mt"] is not None]
+        d_mo = [rms_2022_detail[s]["delta_mo"] for s in swns if rms_2022_detail[s]["delta_mo"] is not None]
+        d_im = [rms_2022_detail[s]["delta_im"] for s in swns if rms_2022_detail[s]["delta_im"] is not None]
+        agwl_vals = [rms_2022_detail[s]["agwl"] for s in swns if rms_2022_detail[s]["agwl"] is not None]
+        zone_offsets[zone] = {
+            "n_wells": len(swns),
+            "ave_agwl": statistics.mean(agwl_vals) if agwl_vals else None,
+            "ave_delta_mt": statistics.mean(d_mt) if d_mt else None,
+            "ave_delta_mo": statistics.mean(d_mo) if d_mo else None,
+            "ave_delta_im": statistics.mean(d_im) if d_im else None,
+        }
+    return zone_offsets, rms_2022_detail
+
+
+def main() -> None:
     wells = json.loads(WELLS_JSON.read_text())
     carry = {t["swn"]: t for t in json.loads(CARRYOVER_JSON.read_text())}
     meas = load_measurements()
     wells_by_swn = {w["swn_or_name"]: w for w in wells}
+
+    zone_offsets, rms_2022_detail = compute_zone_offsets(wells, wells_by_swn, carry, meas)
+
+    print("\n=== AGWL Mirror — zone offsets (ft, derived from 2022 RMS, Feb-April) ===")
+    print(f"{'Zone':<18} {'n':>3} {'AveAGWL':>10} {'ΔMT':>8} {'ΔMO':>8} {'ΔIM':>8}")
+    for zone in ["01-Vina-North", "02-Vina-Chico", "03-Vina-South"]:
+        zo = zone_offsets.get(zone)
+        if not zo:
+            continue
+        agwl_s = f"{zo['ave_agwl']:.2f}" if zo['ave_agwl'] is not None else "—"
+        print(f"{zone:<18} {zo['n_wells']:>3} {agwl_s:>10} "
+              f"{zo['ave_delta_mt']:>8.2f} {zo['ave_delta_mo']:>8.2f} {zo['ave_delta_im']:>8.2f}")
 
     out = []
     for w in wells:
@@ -135,14 +202,11 @@ def main():
             continue
         name = w["swn_or_name"]
         site = w["site_code"]
-        recs = meas.get(site, [])
-        good_recs = filter_qa_good(recs)
-        drecs = drought_records(recs)
-        drought_n = len(drecs)
-        drought_min = min(r["gwe"] for r in drecs) if drecs else None
-        drought_first = drecs[0]["d"] if drecs else None
-        drought_last = drecs[-1]["d"] if drecs else None
-        alltime_min = min(r["gwe"] for r in good_recs) if good_recs else None
+        recs_qa = qa_good(meas.get(site, []))
+        spring_recs = spring_records(meas.get(site, []))
+        n_spring = len(spring_recs)
+        agwl, _ = agwl_for_site(meas, site)
+        alltime_min = min((r["gwe"] for r in recs_qa), default=None)
 
         # ---- 2022 GSP carryover path -------------------------------
         # Either the well was a 2022 RMS itself, or it inherits from a
@@ -163,79 +227,62 @@ def main():
                 "mt_ft": t["mt_ft"],
                 "mo_ft": t["mo_ft"],
                 "im_2027_ft": t["im_2027_ft"],
-                "drought_min": round(drought_min, 2) if drought_min is not None else None,
+                "agwl_ft": round(agwl, 2) if agwl is not None else None,
                 "alltime_min": round(alltime_min, 2) if alltime_min is not None else None,
-                "drought_n": drought_n,
-                "drought_first": drought_first,
-                "drought_last": drought_last,
-                "low_drought_data": drought_n < LOW_DATA_THRESHOLD,
+                "n_spring_obs": n_spring,
+                "low_spring_data": n_spring < LOW_DATA_THRESHOLD,
                 "carryover_from": carry_swn if carry_swn != name else None,
                 "note": note,
             }
             out.append(rec)
             continue
 
-        # ---- 2022 Mirror — new buffer-based methodology ------------
-        # Use the well's NETWORK assignment (rms_mgmt_area) for the buffer
-        # lookup. For most wells this equals mgmt_area_full; for the 2
-        # Chico-located wells that are RMS-for-North (22N01E09B001M,
-        # 22N01E20K001M), rms_mgmt_area = "01-Vina-North" so they get the
-        # North buffer (69.55 ft) rather than the Chico buffer (27.93 ft).
+        # ---- AGWL Mirror — new methodology -------------------------
+        # Zone offset is keyed on rms_mgmt_area (network assignment).
+        # For most wells this equals mgmt_area_full; for the 2 Chico-
+        # located wells that are RMS-for-North, rms_mgmt_area =
+        # "01-Vina-North" so they get the North offset.
         rms_ma = w.get("rms_mgmt_area", w["mgmt_area_full"])
+        zo = zone_offsets.get(rms_ma)
 
-        if alltime_min is None:
-            # Wells without ANY QA-Good GWE — extremely rare for RMS;
-            # flag and leave thresholds None.
+        if agwl is None or zo is None or zo["ave_delta_mt"] is None:
             rec = {
                 "swn": name,
                 "site_code": site,
                 "mgmt_area_full": w["mgmt_area_full"],
                 "rms_mgmt_area": rms_ma,
-                "source": "2022 Mirror (no GWE data)",
+                "source": "AGWL Mirror (no GWE data)",
                 "mt_ft": None,
                 "mo_ft": None,
                 "im_2027_ft": None,
+                "agwl_ft": None,
                 "alltime_min": None,
-                "drought_min": None,
-                "drought_n": 0,
-                "drought_first": None,
-                "drought_last": None,
-                "low_drought_data": True,
-                "regional_buffer_ft": REGIONAL_BUFFER_FT.get(rms_ma),
+                "n_spring_obs": n_spring,
+                "low_spring_data": True,
             }
             out.append(rec)
             continue
 
-        region_buf = REGIONAL_BUFFER_FT.get(rms_ma)
-        if region_buf is None:
-            raise SystemExit(
-                f"No regional buffer defined for rms_mgmt_area = "
-                f"{rms_ma!r} (well {name})"
-            )
-
-        mt_ft = round(alltime_min - region_buf)
-        # MO and IM-2027 keep the prior Mirror formulas (drought-window
-        # based) so the dashboard still has a "measurable objective" tied
-        # to the same hydrologic concept the GSA used for 2022.
-        mo_ft = round(drought_min) if drought_min is not None else None
-        im_ft = round(drought_min + IM_OFFSET) if drought_min is not None else None
+        mt_ft = round(agwl - zo["ave_delta_mt"])
+        mo_ft = round(agwl - zo["ave_delta_mo"]) if zo["ave_delta_mo"] is not None else None
+        im_ft = round(agwl - zo["ave_delta_im"]) if zo["ave_delta_im"] is not None else None
 
         rec = {
             "swn": name,
             "site_code": site,
             "mgmt_area_full": w["mgmt_area_full"],
             "rms_mgmt_area": rms_ma,
-            "source": "2022 Mirror",
+            "source": "AGWL Mirror",
             "mt_ft": mt_ft,
             "mo_ft": mo_ft,
             "im_2027_ft": im_ft,
-            "alltime_min": round(alltime_min, 2),
-            "drought_min": round(drought_min, 2) if drought_min is not None else None,
-            "drought_n": drought_n,
-            "drought_first": drought_first,
-            "drought_last": drought_last,
-            "low_drought_data": drought_n < LOW_DATA_THRESHOLD,
-            "regional_buffer_ft": region_buf,
+            "agwl_ft": round(agwl, 2),
+            "alltime_min": round(alltime_min, 2) if alltime_min is not None else None,
+            "n_spring_obs": n_spring,
+            "low_spring_data": n_spring < LOW_DATA_THRESHOLD,
+            "zone_offset_mt": round(zo["ave_delta_mt"], 2),
+            "zone_offset_mo": round(zo["ave_delta_mo"], 2) if zo["ave_delta_mo"] is not None else None,
+            "zone_offset_im": round(zo["ave_delta_im"], 2) if zo["ave_delta_im"] is not None else None,
         }
         out.append(rec)
 
@@ -245,25 +292,24 @@ def main():
     OUT.write_text(json.dumps(out, indent=2))
 
     n_adopted = sum(1 for r in out if r["source"] == "2022 GSP")
-    n_mirror = sum(1 for r in out if r["source"].startswith("2022 Mirror"))
-    n_low = sum(1 for r in out if r["low_drought_data"] and r["source"].startswith("2022 Mirror"))
+    n_mirror = sum(1 for r in out if r["source"].startswith("AGWL Mirror"))
+    n_low = sum(1 for r in out if r.get("low_spring_data") and r["source"].startswith("AGWL Mirror"))
     print(f"\nWrote {OUT}")
     print(f"  total RMS wells: {len(out)}")
     print(f"    adopted (2022 GSP):  {n_adopted}")
-    print(f"    new (2022 Mirror):   {n_mirror}")
-    print(f"      ...with thin drought data (<{LOW_DATA_THRESHOLD}): {n_low}")
+    print(f"    new (AGWL Mirror):   {n_mirror}")
+    print(f"      ...with thin spring data (<{LOW_DATA_THRESHOLD}): {n_low}")
 
-    print(f"\n{'Well':<18} {'mgmt':<15} {'source':<14} {'alltime':>8} "
-          f"{'buf':>6} {'MT':>5} {'MO':>5} {'IM':>5} {'n_drought':>10}")
+    print(f"\n{'Well':<18} {'mgmt':<15} {'source':<14} {'AGWL':>8} "
+          f"{'MT':>5} {'MO':>5} {'IM':>5} {'n_spr':>6}")
     print("-" * 95)
     for r in out:
-        am = f"{r['alltime_min']:.1f}" if r.get('alltime_min') is not None else "—"
-        buf = f"{r['regional_buffer_ft']:.2f}" if r.get('regional_buffer_ft') is not None else "—"
+        agwl_s = f"{r.get('agwl_ft'):.1f}" if r.get('agwl_ft') is not None else "—"
         mt = str(r['mt_ft']) if r['mt_ft'] is not None else "—"
         mo = str(r['mo_ft']) if r['mo_ft'] is not None else "—"
         im = str(r['im_2027_ft']) if r['im_2027_ft'] is not None else "—"
         print(f"{r['swn']:<18} {r['mgmt_area_full']:<15} {r['source']:<14} "
-              f"{am:>8} {buf:>6} {mt:>5} {mo:>5} {im:>5} {r.get('drought_n', 0):>10}")
+              f"{agwl_s:>8} {mt:>5} {mo:>5} {im:>5} {r.get('n_spring_obs', 0):>6}")
 
 
 if __name__ == "__main__":
