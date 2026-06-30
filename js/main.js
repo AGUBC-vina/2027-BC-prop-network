@@ -1,19 +1,16 @@
 // Vina Subbasin 2027 RMS Network Dashboard — UI logic.
-// Loads WELLS, RMS_POLYGONS_SINGLE, RMS_POLYGONS_THREE_ZONE,
-// MEASUREMENTS, VINA_BOUNDARY as globals. The active polygon set is
-// chosen by the §5.2 "Polygon method" picker; `RMS_POLYGONS` is a
-// dashboard-local alias that gets swapped when the picker changes.
+// Loads WELLS, RMS_POLYGONS_THREE_ZONE, MEASUREMENTS, VINA_BOUNDARY as
+// globals. `RMS_POLYGONS` is a dashboard-local alias for the three-zone
+// tessellation (three independent Voronoi diagrams, one per management
+// area, with Chico dissolved into a single aggregate polygon).
 
 (function () {
   "use strict";
 
-  /* -------------- polygon-method state --------------------------------- */
-  // Either "single" (one Voronoi diagram clipped to the Vina Subbasin) or
-  // "three_zone" (three independent tessellations, one per management area).
-  let polygonMethod = "three_zone";
+  /* -------------- polygon set -------------------------------------------- */
   let RMS_POLYGONS = (typeof RMS_POLYGONS_THREE_ZONE !== "undefined")
     ? RMS_POLYGONS_THREE_ZONE
-    : (typeof RMS_POLYGONS_SINGLE !== "undefined" ? RMS_POLYGONS_SINGLE : []);
+    : [];
 
   /* -------------- palette ------------------------------------------------ */
   const MA_COLORS = {
@@ -117,16 +114,16 @@
   /* -------------- KPI row ----------------------------------------------- */
   function renderKPIs() {
     const n = WELLS.length;
-    // Count RMS "sites" (distinct lat/lng) not raw is_2027_gwl_rms entries,
-    // so nested Chico completions (CWSCH ×7 at one site, 22N01E28J ×3 at
-    // another) collapse to 2 sites rather than inflating the count to 10.
-    // The 2026-05-19 network framing is "27 RMS wells across 26 polygons".
-    const rmsSites = new Set(
-      WELLS.filter((w) => w.is_2027_gwl_rms && w.latitude != null && w.longitude != null)
-        .map((w) => `${(+w.latitude).toFixed(5)}|${(+w.longitude).toFixed(5)}`)
-    );
+    // Count every is_2027_gwl_rms well individually, including the 4
+    // Chico RMS wells (CWSCH01b/02/03/07) that share one map pin for
+    // privacy display purposes — they're genuinely distinct RMS wells
+    // (different MO/IM, different completion depths, each with its own
+    // threshold lines), not duplicates, so the KPI shouldn't collapse
+    // them. RMS-well count and polygon count are intentionally allowed
+    // to differ — Chico is 1 polygon with 4 RMS wells.
+    const n2027Rms = WELLS.filter((w) => w.is_2027_gwl_rms).length;
     $("#kpi-wells").textContent = n;
-    $("#kpi-rms-2027").textContent = rmsSites.size;
+    $("#kpi-rms-2027").textContent = n2027Rms;
     $("#kpi-poly").textContent = RMS_POLYGONS.length;
 
     // Data freshness from MEASUREMENTS metadata if available
@@ -265,8 +262,12 @@
     return { dry, total };
   }
 
-  // For aggregate polygons (Chico), use the single RMS well's MT.
-  // For per-well polygons, use the seed RMS well's MT.
+  // For aggregate polygons (Chico, which can carry multiple RMS wells),
+  // use the first-listed RMS primary's MT as the polygon's representative
+  // value. For per-well polygons, use the seed RMS well's MT. Chico's
+  // current RMS wells all share MT=85, so the "which primary" choice is
+  // not consequential today, but would matter if a future Chico RMS well
+  // had a different MT.
   function polygonMT(poly) {
     const primarySwn = poly.is_aggregate
       ? (poly.rms_primary_swns || [])[0]
@@ -276,6 +277,10 @@
     return w ? w.mt_ft : null;
   }
 
+  // Reference GSE for the one-sided elevation correction. For Chico
+  // (multiple RMS primaries with materially different GSE — e.g.
+  // CWSCH01b=200ft vs CWSCH07=266ft), this uses the first-listed
+  // primary's GSE, same simplification as polygonMT() above.
   function polygonRmsGSE(poly) {
     const primarySwn = poly.is_aggregate
       ? (poly.rms_primary_swns || [])[0]
@@ -563,27 +568,6 @@
     });
   }
 
-  // Swap the active polygon set (single ↔ three-zone). Rebuilds the map
-  // polygon layer, re-populates the §5.3 picker, refreshes the KPI count
-  // (single = 27 cells, three-zone = 26), and re-selects the
-  // previously-selected SWN if it still exists in the new set.
-  function setPolygonMethod(method) {
-    if (method !== "single" && method !== "three_zone") return;
-    if (typeof RMS_POLYGONS_SINGLE === "undefined"
-        || typeof RMS_POLYGONS_THREE_ZONE === "undefined") return;
-    polygonMethod = method;
-    RMS_POLYGONS = method === "three_zone" ? RMS_POLYGONS_THREE_ZONE : RMS_POLYGONS_SINGLE;
-    const keep = selectedPoly;
-    buildPolygonLayer();
-    populatePolygonPicker();
-    $("#kpi-poly").textContent = RMS_POLYGONS.length;
-    if (keep && RMS_POLYGONS.find((p) => p.zone_label === keep)) {
-      selectPolygon(keep);
-    } else if (RMS_POLYGONS.length) {
-      selectPolygon(RMS_POLYGONS[0].zone_label);
-    }
-  }
-
   function renderMap() {
     map = L.map("map", { preferCanvas: false, zoomControl: true }).setView([39.74, -121.86], 11);
     setBasemap("carto");
@@ -659,7 +643,6 @@
       if (e.target.checked) domesticLayer.addTo(map); else map.removeLayer(domesticLayer);
     });
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
-    $("#picker-poly-method").addEventListener("change", (e) => setPolygonMethod(e.target.value));
   }
 
   // Build the domestic-wells overlay layer. Canvas-rendered for performance

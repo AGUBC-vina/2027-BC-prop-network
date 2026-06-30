@@ -5,7 +5,7 @@ network in the Vina Subbasin (DWR B118 5-021.57), Butte County, California.
 
 Built from `BC Network 2026 v8.xlsx`.
 
-> The current state is **26 RMS wells across 26 polygons**:
+> The current state is **29 RMS wells across 26 polygons**:
 >
 > - **13 North** Voronoi cells. Three of the 13 RMS wells
 >   (`22N01E09B001M`, `22N01E20K001M`, `23N01E33A001M`) physically sit
@@ -15,20 +15,24 @@ Built from `BC Network 2026 v8.xlsx`.
 >   themselves remain inside Chico. The 11 cells whose seed wells are
 >   physically in N tile the rest of the basin-minus-Chico-minus-South
 >   region, absorbing any sliver between mgmt-area boundaries.
-> - **1 dissolved Chico** mgmt-area polygon, with **CWSCH01b as the
->   single RMS well** for the 2027 Chico network. The 9 other
->   completions at the historical 2022 GSP nested sites — CWSCH 7-nest
->   (CWSCH02/03/04/05/06/07) and 22N01E28J 3-nest (22N01E28J001M/003M/
->   005M) — are now supplemental, plotted in §5.3 for hydrograph context
->   but without threshold lines.
+> - **1 dissolved Chico** mgmt-area polygon, with **four 2027 RMS
+>   wells** — `CWSCH01b`, `CWSCH02`, `CWSCH03`, `CWSCH07` — all 2022 GSP
+>   carryovers. As of the most recent revision, BCWRC flagged CWSCH02,
+>   CWSCH03, and CWSCH07 as additional 2027 RMS wells (joining the
+>   existing CWSCH01b); since Chico is a single fixed-boundary polygon
+>   regardless of RMS count, this is a Chico-only change — North, South,
+>   and the 26-polygon total are unaffected. The 6 remaining completions
+>   at the same two physical pads — CWSCH 7-nest (`CWSCH04/05/06`) and
+>   22N01E28J 3-nest (`22N01E28J001M/003M/005M`) — remain supplemental,
+>   plotted in §5.3 for hydrograph context but without threshold lines.
 > - **12 South** Voronoi cells, clipped to South mgmt area.
 >
-> **Threshold methodology (revised 2026-05-21):** 9 wells are direct
-> 2022 GSP carryovers (5 N, 3 S, 1 Chico = CWSCH01b); 17 wells get the
-> **AGWL Mirror** thresholds — each well's average Feb–April groundwater
-> level minus a per-zone offset calibrated against the 2022 GSP MT/MO/IM,
-> as described in the methodology section below. The 9 Chico supplementals
-> remain monitored but unthresholded.
+> **Threshold methodology (revised 2026-05-21):** 12 wells are direct
+> 2022 GSP carryovers (5 N, 3 S, 4 Chico = CWSCH01b/02/03/07); 17 wells
+> get the **AGWL Mirror** thresholds — each well's average Feb–April
+> groundwater level minus a per-zone offset calibrated against the 2022
+> GSP MT/MO/IM, as described in the methodology section below. The 6
+> Chico supplementals remain monitored but unthresholded.
 >
 > See "Source 2" below and PROJECT_NOTES for full history.
 
@@ -49,7 +53,6 @@ pip3 install --user openpyxl pandas geopandas pyproj scipy shapely requests
 
 # 2. (one-time per data refresh) rebuild the data files
 python3 scripts/resolve_sites.py               # xlsx -> data/wells_resolved.json
-python3 scripts/build_polygons_single.py       # -> data/vina_2027_thiessen_single.geojson + js/polygons-data-single.js
 python3 scripts/build_polygons_three_zone.py   # -> data/vina_2027_thiessen_three_zone.geojson + js/polygons-data-three-zone.js
 python3 scripts/fetch_dwr_measurements.py      # -> js/measurements-data.js (~15 MB)
 python3 scripts/compute_thresholds.py          # -> data/thresholds.json
@@ -72,17 +75,15 @@ GitHub Pages, S3, or open `index.html` directly.
 ├── BC Network 2026 v8.xlsx                 Source workbook (79 wells, RMS flags, metadata)
 ├── js/
 │   ├── wells-data.js                       const WELLS — 79 wells joined to DWR site_code
-│   ├── polygons-data-single.js             const RMS_POLYGONS_SINGLE — 26 cells (one Voronoi per 2027 RMS well), basin-wide
 │   ├── polygons-data-three-zone.js         const RMS_POLYGONS_THREE_ZONE — 26 entries (13 N Voronoi cells + 1 dissolved Chico polygon + 12 S Voronoi cells)
 │   ├── measurements-data.js                const MEASUREMENTS, MEASUREMENTS_META — periodic GWL
 │   ├── basin-boundary.js                   const VINA_BOUNDARY — B118 5-021.57 GeoJSON
 │   ├── readme-data.js                      const README_MD — this README bundled for the in-page accordion
-│   └── main.js                             UI logic (Leaflet, Plotly, layer toggles, polygon-method picker)
+│   └── main.js                             UI logic (Leaflet, Plotly, layer toggles)
 ├── data/                                   Intermediate JSON for the JS bundles
 │   ├── wells_resolved.json                 Excel rows joined to DWR Stations
-│   ├── thresholds.json                     MT/MO/IM-2027 for the 26 RMS wells (9 GSP carryovers + 17 AGWL Mirror); the 9 supplemental Chico nested completions are monitored but unthresholded
-│   ├── thresholds_2022.json                The 17 adopted 2022 GSP MT/MO/IM values (6 N + 6 S + 5 Chico); used by compute_thresholds.py as the calibration sample for AGWL Mirror and as the carryover source for the 9 wells retained from the 2022 RMS network
-│   ├── vina_2027_thiessen_single.geojson   Single-tessellation polygons as GeoJSON
+│   ├── thresholds.json                     MT/MO/IM-2027 for the 2027 RMS wells (GSP carryovers + AGWL Mirror); supplemental Chico nested completions are monitored but unthresholded
+│   ├── thresholds_2022.json                The adopted 2022 GSP MT/MO/IM values; used by compute_thresholds.py as the calibration sample for AGWL Mirror and as the carryover source for wells retained from the 2022 RMS network
 │   └── vina_2027_thiessen_three_zone.geojson  Three-zone polygons as GeoJSON
 ├── raw/                                    Cached raw downloads (gitignored)
 │   ├── stations.csv                        DWR CKAN periodic GWL Stations resource
@@ -91,10 +92,9 @@ GitHub Pages, S3, or open `index.html` directly.
 │   └── b118_vina_esri.json                 Source Esri JSON before reshaping to GeoJSON
 └── scripts/                                Build scripts
     ├── resolve_sites.py                    xlsx + DWR Stations -> wells_resolved.json
-    ├── build_polygons_single.py            Single basin-wide tessellation (Method A below)
-    ├── build_polygons_three_zone.py        Per-management-area tessellations (Method B below)
+    ├── build_polygons_three_zone.py        Per-management-area tessellations (see "How the polygons are built" below)
     ├── fetch_dwr_measurements.py           DWR CKAN -> measurements-data.js
-    ├── compute_thresholds.py               9 GSP carryovers + 17 AGWL Mirror -> thresholds.json
+    ├── compute_thresholds.py               GSP carryovers + AGWL Mirror -> thresholds.json
     ├── build_wells_js.py                   wells_resolved + thresholds -> wells-data.js
     ├── update_workbook_thresholds.py       Appends MT/MO/IM/Source columns to xlsx
     └── build_readme_js.py                  README.md -> readme-data.js
@@ -102,52 +102,36 @@ GitHub Pages, S3, or open `index.html` directly.
 
 ## How the polygons are built
 
-> **Counts at a glance.** Both methods produce **26 polygons** seeded from the **26 wells in the 2027 RMS network** (13 N, 1 Chico = `CWSCH01b`, 12 S).
+> **Counts at a glance.** The dashboard produces **26 polygons**: 13 N Voronoi cells clipped to (Basin − Chico − South) + 1 dissolved Chico mgmt-area polygon + 12 S Voronoi cells clipped to South.
 >
-> - **Single tessellation** → 26 cells, one Voronoi per 2027 RMS well clipped to the Vina Subbasin boundary.
-> - **Three-zone tessellation** → 26 entries: 13 N Voronoi cells clipped to (Basin − Chico − South) + 1 dissolved Chico mgmt-area polygon + 12 S Voronoi cells clipped to South.
->
-> The 9 Chico supplemental completions (CWSCH02–07 and 22N01E28J001M/003M/005M — share the CWSCH01b and 22N01E28J pads, respectively) are not RMS in the 2027 network, so they don't seed any polygon. They appear in §5.3 hydrographs as supplemental traces for the Chico aggregate.
+> Chico supplemental completions that share a pad with a Chico RMS well are not themselves RMS in the 2027 network, so they don't seed any polygon. They appear in §5.3 hydrographs as supplemental traces for the Chico aggregate.
 
 A Thiessen polygon (aka Voronoi cell) for a point is the locus of points in
 space that are closer to that point than to any other point in the seed set.
 Used in groundwater monitoring to define the area each RMS well is
 **presumed** to represent.
 
-The dashboard ships **two complete tessellations** that answer different
-questions about how the basin should be partitioned. A `Polygon method`
-picker at the top of §5.2 swaps between them instantly without reloading.
+The three management areas are handled with **different polygon
+strategies** that reflect how the GSA's stakeholders want each area
+represented: North and South each get a Voronoi tessellation, while
+Chico is dissolved into one aggregate polygon (more below). **No
+polygon overlaps with the Chico management area.**
 
-| Method | Output | When to use |
-|---|---|---|
-| **Three-zone tessellation** (default) | 26 entries: 13 N Voronoi cells + 1 dissolved Chico mgmt-area polygon + 12 S Voronoi cells. No N or S cell overlaps Chico. | SMC-defensible view: each management area carries distinct sustainability criteria, so partitioning *within* each area gives a self-contained polygon-by-polygon story. Chico's hydrogeology is better captured by treating it as a single aggregate (with CWSCH01b as the RMS well and 9 nested supplementals for context) than by Voronoi subdivision. |
-| **Single tessellation** | 26 cells, one Voronoi per 2027 RMS well, all clipped to the basin boundary. | Basin-wide proximity view; useful for stakeholders who want to see which RMS well is geographically closest to any point in the basin. |
-
-Both methods share the same foundations (Step 1 below: seeds, Step 2:
-project to EPSG:3310). They diverge on the **clip boundary** (basin vs.
-mgmt-area polygons) and on **how Chico is handled** (the three-zone
-method dissolves Chico into one aggregate polygon; the single method
-gives CWSCH01b its own Voronoi cell within the basin).
-
-### Step 1 (shared): Pick the seeds
+### Step 1: Pick the seeds
 
 Read `BC Network 2026 v8.xlsx`. Keep every row where column **E (`2027 GWL
-RMS?`) = "Yes"**. This yields **26 wells** — one seed per polygon — distributed by network assignment:
-
-| RMS sites (network design) | Wells |
-|-----------|-------|
-| 01-Vina-North (network) | 13 — 10 physically in N + 3 physically in Chico but RMS-for-North (`22N01E09B001M`, `22N01E20K001M`, `23N01E33A001M`) |
-| 02-Vina-Chico | 1 — `CWSCH01b` (9 nested-pad supplementals at the same site are not RMS in 2027 and don't seed polygons) |
-| 03-Vina-South | 12 |
+RMS?`) = "Yes"**. North and South each seed one Voronoi cell per RMS well;
+Chico does not seed individual cells (see Method below).
 
 Coordinates come from columns **L (latitude)** and **M (longitude)**. A
 `rms_mgmt_area` field in `wells_resolved.json` captures the
 network-design mgmt-area assignment, which can differ from the workbook
-`mgmt_area_full` (geographic). For the 2 reassigned wells
-(`22N01E09B001M`, `22N01E20K001M`) `rms_mgmt_area = "01-Vina-North"`
-while `mgmt_area_full` stays `"02-Vina-Chico"`.
+`mgmt_area_full` (geographic). Wells that are RMS for the North network
+but physically located in Chico (e.g. `22N01E09B001M`, `22N01E20K001M`)
+carry `rms_mgmt_area = "01-Vina-North"` while `mgmt_area_full` stays
+`"02-Vina-Chico"`.
 
-### Step 2 (shared): Project to an equal-area metric CRS
+### Step 2: Project to an equal-area metric CRS
 
 Voronoi tessellation only behaves sensibly in a Euclidean metric. Lat/lon
 degrees aren't Euclidean — a degree of longitude at 39.7° N is about 23 %
@@ -157,36 +141,9 @@ project both seeds and clip boundaries from **WGS-84 (EPSG:4326)** into
 EPSG:3310 is the standard DWR / Bulletin 118 working CRS, so polygon areas
 in the dashboard match what you'd compute against the official DWR layers.
 
-### Method A — Single tessellation
-
-`scripts/build_polygons_single.py`.
-
-**Clip boundary**: Vina Subbasin (`Basin_Subbasin_Number = '5-021.57'`)
-pulled from the DWR ArcGIS REST service, then converted from Esri JSON to
-GeoJSON locally with Shapely. Lives at `raw/vina_subbasin.geojson` — a
-single Polygon with a 1,729-vertex outer ring (~184,000 acres).
-
-**Tessellation**: `scipy.spatial.Voronoi` over all 26 RMS-well coordinates.
-Four anchor points 10× the basin bounding box outside ensure every real
-cell is bounded (SciPy emits open rays for hull sites otherwise). Each
-finite cell is intersected with the Albers-projected basin polygon, so
-cell edges along the basin perimeter follow the official B118 line.
-
-**Export**:
-- `data/vina_2027_thiessen_single.geojson` — GeoJSON FeatureCollection
-- `js/polygons-data-single.js` — `const RMS_POLYGONS_SINGLE = [...]`, rings
-  in `[lat, lng]` order for Leaflet
-
-Sanity check: 26 cells total **~184,900 acres** — within 0.3% of the
-published Vina Subbasin area (~184,400 acres).
-
-### Method B — Three-zone (per-mgmt-area)
+### Method — Per-management-area tessellation
 
 `scripts/build_polygons_three_zone.py`.
-
-The three management areas are handled with **different polygon
-strategies** that reflect how the GSA's stakeholders want each area
-represented. **No polygon overlaps with the Chico management area.**
 
 **North** — 13 wells, **Voronoi cells**, all clipped to
 `(Basin − Chico mgmt area − South mgmt area)`. The Voronoi is computed
@@ -201,14 +158,20 @@ any sliver between mgmt-area boundaries on the W and E edges is
 absorbed into the adjacent N cell — no orphan slivers.
 
 **Chico** — **one dissolved polygon** = the entire Chico mgmt area
-boundary (no internal Voronoi subdivision). The single 2027 RMS well
-for Chico is **CWSCH01b**; its MT/MO/IM is the 2022 GSP carryover.
-The 9 supplemental well completions at the same two physical pads —
-CWSCH02/03/04/05/06/07 (CWSCH pad) and 22N01E28J001M/003M/005M
-(22N01E28J pad) — are monitored but unthresholded in the 2027 network.
-The dashboard renders Chico as a single §5.3 picker entry; selecting
-it plots CWSCH01b's hydrograph with threshold lines plus all 9
-supplemental traces for context.
+boundary (no internal Voronoi subdivision), regardless of how many RMS
+wells are associated with it. As of the 2026-05 revision, Chico has
+**four 2027 RMS wells** — `CWSCH01b`, `CWSCH02`, `CWSCH03`, and
+`CWSCH07` — all 2022 GSP carryovers, so each keeps its adopted 2022
+MT/MO/IM unchanged. The remaining well completions at the same two
+physical pads — `CWSCH04/05/06` (CWSCH pad) and
+`22N01E28J001M/003M/005M` (22N01E28J pad) — are monitored but
+unthresholded supplementals in the 2027 network. Because Chico is a
+single dissolved polygon, adding RMS wells here does not change the
+polygon count — it only adds more hydrograph traces with threshold
+lines to the same Chico aggregate entry. The dashboard renders Chico
+as a single §5.3 picker entry; selecting it plots all four RMS
+hydrographs with threshold lines plus the remaining supplemental
+traces for context.
 
 **South** — 12 wells, **Voronoi cells**, clipped to the South mgmt
 area.
@@ -250,73 +213,42 @@ rounding); the Chico aggregate is **~29,700 ac** (full mgmt area); the
 12 S cells are **~83,000 ac** (= full South mgmt area). N-Chico
 overlap: **0 ac**.
 
-### Per-polygon areas (post-2026-05-19+ revision)
+### Per-polygon areas
 
-Acres are rounded to the nearest integer. In three-zone, the 3
-Chico-located N RMS wells (marked ⚑) have polygons in N (north of where
-the well marker sits), not in Chico — their cell area is whatever piece
-of (Basin − Chico − South) is closer to that well than any other N
-seed. Both methods' totals are within rounding of 184,400 ac (the Vina
-Subbasin).
+Acres are rounded to the nearest integer. The 3 Chico-located N RMS
+wells (marked ⚑) have polygons in N (north of where the well marker
+sits), not in Chico — their cell area is whatever piece of
+(Basin − Chico − South) is closer to that well than any other N seed.
+The total is within rounding of 184,400 ac (the Vina Subbasin).
 
-| site / polygon | mgmt area (network) | acres (single) | acres (three-zone) |
-|---|---|---:|---:|
-| 22N01W05M001M | North | 7,541 | 7,541 |
-| 23N01E07H001M | North | 8,272 | 8,272 |
-| ⚑ 23N01E33A001M | North (in Chico geo) | 10,782 | 9,963 |
-| 23N01W36P001M | North | 7,088 | 7,088 |
-| 23N02W25C001M | North | 5,850 | 5,850 |
-| 23N01E29P002M | North | 3,968 | 3,896 |
-| 23N01W09E001M | North | 5,311 | 5,311 |
-| 23N01W10M001M | North | 3,522 | 3,522 |
-| 23N01W14R002M | North | 3,975 | 3,975 |
-| 23N01W27L001M | North | 3,166 | 3,166 |
-| 23N01W28M004M | North | 3,359 | 3,359 |
-| ⚑ 22N01E20K001M | North (in Chico geo) | 9,997 | 8,147 |
-| ⚑ 22N01E09B001M | North (in Chico geo) | 6,788 | 1,966 |
-| CWSCH01b | Chico | 14,916 | (covered by Chico aggregate) |
-| 02-Vina-Chico (dissolved) | Chico | — | 29,718 |
-| 20N02E24C001M | South | 7,863 | 7,861 |
-| 21N02E18C003M | South | 12,365 | 5,244 |
-| 20N01E02H003M | South | 5,202 | 5,200 |
-| 20N02E09G001M | South | 6,522 | 6,521 |
-| 20N03E33L001M | South | 5,182 | 5,186 |
-| 21N01E10B003M | South | 6,309 | 6,650 |
-| 21N01E13L004M | South | 2,713 | 2,713 |
-| 21N01E25K001M | South | 2,748 | 2,748 |
-| 21N01E27D001M | South | 10,931 | 10,825 |
-| 21N02E26E006M | South | 11,791 | 11,480 |
-| 21N02E32E001M | South | 4,534 | 4,534 |
-| 21N03E32B001M | South | 14,223 | 14,225 |
-
-### How the dashboard chooses
-
-`index.html` loads both `polygons-data-single.js` and
-`polygons-data-three-zone.js` as siblings; `js/main.js` keeps a swappable
-`RMS_POLYGONS` reference pointing at whichever set the `Polygon method`
-picker has selected. Switching the picker calls `setPolygonMethod()`,
-which clears and rebuilds the Leaflet polygon layer, re-populates the
-§5.3 picker (the mgmt-area-prefixed label updates for the reassigned
-wells), and re-selects the previously-active well if it still exists in
-the new set. Both methods carry 26 keys; the only key that differs
-between them is the Chico polygon — labeled `CWSCH01b` in single and
-`02-Vina-Chico` in three-zone — but both reference CWSCH01b as the
-underlying RMS well.
-
-### Method-specific notes
-
-1. **Chico aggregation.** The three-zone method dissolves Chico into a
-   single mgmt-area polygon (no internal Voronoi subdivision). The
-   single-tessellation method gives CWSCH01b — Chico's one 2027 RMS
-   well — its own Voronoi cell within the basin boundary.
-2. **Edge-case wells.** Three RMS wells in the North network physically
-   sit inside the Chico mgmt area (`22N01E09B001M`, `22N01E20K001M`,
-   `23N01E33A001M`). The single-tessellation method gives them
-   Voronoi cells centered on their physical location; the three-zone
-   method clips their cells so they sit *north* of the wells, inside
-   the (Basin − Chico − South) region they represent for the North
-   network. An auditable `reassigned` flag in each well record tracks
-   this network-vs-geographic split.
+| site / polygon | mgmt area (network) | acres |
+|---|---|---:|
+| 22N01W05M001M | North | 7,541 |
+| 23N01E07H001M | North | 8,272 |
+| ⚑ 23N01E33A001M | North (in Chico geo) | 9,963 |
+| 23N01W36P001M | North | 7,088 |
+| 23N02W25C001M | North | 5,850 |
+| 23N01E29P002M | North | 3,896 |
+| 23N01W09E001M | North | 5,311 |
+| 23N01W10M001M | North | 3,522 |
+| 23N01W14R002M | North | 3,975 |
+| 23N01W27L001M | North | 3,166 |
+| 23N01W28M004M | North | 3,359 |
+| ⚑ 22N01E20K001M | North (in Chico geo) | 8,147 |
+| ⚑ 22N01E09B001M | North (in Chico geo) | 1,966 |
+| 02-Vina-Chico (dissolved, 4 RMS wells) | Chico | 29,718 |
+| 20N02E24C001M | South | 7,861 |
+| 21N02E18C003M | South | 5,244 |
+| 20N01E02H003M | South | 5,200 |
+| 20N02E09G001M | South | 6,521 |
+| 20N03E33L001M | South | 5,186 |
+| 21N01E10B003M | South | 6,650 |
+| 21N01E13L004M | South | 2,713 |
+| 21N01E25K001M | South | 2,748 |
+| 21N01E27D001M | South | 10,825 |
+| 21N02E26E006M | South | 11,480 |
+| 21N02E32E001M | South | 4,534 |
+| 21N03E32B001M | South | 14,225 |
 
 ## MT / MO / IM-2027 threshold methodology
 
@@ -326,11 +258,11 @@ The dashboard shows Sustainable Management Criteria (SMC) threshold lines on
 every 2027 RMS well's hydrograph. Values come from one of two sources, both
 expressed as **groundwater elevation in ft msl** (not depth-below-RPE):
 
-### Source 1 — "2022 GSP" (adopted, 9 wells)
+### Source 1 — "2022 GSP" (adopted, 12 wells)
 
 These are the **Minimum Threshold (MT)**, **Measurable Objective (MO)**,
 and **Interim Milestone for 2027 (IM-2027)** values carried over
-**unchanged** from the 2022 Vina GSP for the 9 wells that are in both
+**unchanged** from the 2022 Vina GSP for the 12 wells that are in both
 the 2022 and 2027 RMS networks. Rendered with **dashed** lines in §5.3
 hydrographs and labeled with the "GSP-adopted MT/MO" pill in the §5.3
 table.
@@ -345,7 +277,10 @@ table.
 | 20N02E24C001M | South | 18 | 77 | 81 | |
 | 21N02E18C003M | South | 65 | 130 | 132 | |
 | 21N02E26E006M | South | 36 |  95 |  97 | inherits from `21N02E26E005M`, the 2022 GSP RMS at this same lat/lng (retired from 2027, different completion depth) |
-| CWSCH01b | Chico | 85 | 106 | 107 | the only RMS at the Chico aggregate; 9 nested-completion supplementals plot for context but are unthresholded |
+| CWSCH01b | Chico | 85 | 106 | 107 | one of 4 Chico RMS wells; 6 nested-completion supplementals plot for context but are unthresholded |
+| CWSCH02 | Chico | 85 | 105 | 108 | |
+| CWSCH03 | Chico | 85 | 108 | 109 | |
+| CWSCH07 | Chico | 85 | 95 | 97 | |
 
 ### Source 2 — "AGWL Mirror" (Feb–April AGWL methodology, 17 wells)
 
@@ -502,9 +437,9 @@ python3 scripts/update_workbook_thresholds.py  # -> appends MT/MO/IM/Source colu
 ```
 
 The workbook now carries four trailing columns (W–Z) — `MT_ft`, `MO_ft`,
-`IM_2027_ft`, `Threshold_Source` — populated for the 26 wells in the
+`IM_2027_ft`, `Threshold_Source` — populated for the 29 wells in the
 2027 RMS network (matching `data/thresholds.json`), with 2022 GSP rows
-shaded light blue and AGWL Mirror rows shaded warm cream. The 9 Chico
+shaded light blue and AGWL Mirror rows shaded warm cream. The 6 Chico
 nested-completion supplementals are not RMS in 2027 and are left blank.
 
 ---
@@ -589,12 +524,12 @@ state.
 
 | Layer | Source | Endpoint |
 |-------|--------|----------|
-| RMS network membership + well metadata (79 wells in the broader monitoring set, 26 flagged as 2027 RMS) | `BC Network 2026 v8.xlsx` | local file (Butte County WRC) |
+| RMS network membership + well metadata (79 wells in the broader monitoring set, 29 flagged as 2027 RMS) | `BC Network 2026 v8.xlsx` | local file (Butte County WRC) |
 | Domestic wells overlay (1,253 active wells used in the §5.2 overlay and §5.3 sensitivity widget) | `Vina_GWL_MT22_analysis_v6.xlsx` | local file (provided by Larry Walker Associates, April 2026) |
 | DWR site_code resolution | DWR CKAN Stations resource | https://data.cnra.ca.gov/dataset/periodic-groundwater-level-measurements (resource `af157380-...`) |
 | Periodic GWL measurements | DWR CKAN Measurements resource | same dataset, resource `bfa9f262-24a1-45bd-8dc8-138bc8107266` (filtered to network sites via `datastore_search` API) |
 | Vina Subbasin boundary | DWR ArcGIS REST i08 B118 | `Basin_Subbasin_Number='5-021.57'` |
-| MT / MO / IM-2027 thresholds | 2022 Vina GSP (for the 9 carryover wells) + AGWL Mirror methodology applied to DWR Feb–April periodic measurements (for the 17 new wells) | see "MT / MO / IM-2027 threshold methodology" above |
+| MT / MO / IM-2027 thresholds | 2022 Vina GSP (for the 12 carryover wells) + AGWL Mirror methodology applied to DWR Feb–April periodic measurements (for the 17 new wells) | see "MT / MO / IM-2027 threshold methodology" above |
 
 DWR refresh stamp is shown in the page header — it comes from
 `MEASUREMENTS_META.fetched_at` in `js/measurements-data.js`. To refresh, just
