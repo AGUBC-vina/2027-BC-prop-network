@@ -569,6 +569,84 @@ and readme-data.js) and `?v=13` (wells-data.js).
 
 ---
 
+### 16. 2026-05 — Removed single-tessellation toggle; added 3 Chico RMS wells (CWSCH02/03/07)
+
+Two changes landed together on branch `chico-3-new-rms`.
+
+**Single-tessellation toggle removed.** The §5.2 "Polygon method" picker
+and its underlying `RMS_POLYGONS_SINGLE` / `polygons-data-single.js`
+infrastructure are no longer wired into the dashboard. `js/main.js` now
+hardcodes `RMS_POLYGONS = RMS_POLYGONS_THREE_ZONE`; `setPolygonMethod()`
+and its event listener were deleted. `index.html` no longer loads
+`polygons-data-single.js`. README's "How the polygons are built"
+section was rewritten to describe only the three-zone method (Method A
+/ Method B framing, the comparison table, and "How the dashboard
+chooses" section were all removed). `scripts/build_polygons_single.py`
+and `data/vina_2027_thiessen_single.geojson` are left in place
+(unreferenced) rather than deleted, in case the single-tessellation
+view is wanted again later.
+
+**Chico RMS expansion.** BCWRC flagged `CWSCH02`, `CWSCH03`, and
+`CWSCH07` as 2027 RMS wells (column E in the workbook), joining the
+existing `CWSCH01b`. All 4 are 2022 GSP RMS wells, so each keeps its
+adopted MT/MO/IM unchanged (Chico's "2022 GSP" carryover count went
+from 1 to 4; the basin-wide carryover total is now 12 instead of 9).
+2027 RMS wells basin-wide: 26 → 29. Because Chico is a single
+fixed-boundary polygon (no internal Voronoi), this is purely a
+hydrograph/threshold-line change — **polygon count stays 26, no
+geometry changes anywhere in the network.**
+
+**Bug found and fixed during this work — two manual data overrides
+were not durable.** `data/wells_resolved.json` is regenerated from
+scratch by `scripts/resolve_sites.py` on every run and is gitignored,
+so it carries no memory between sessions. Two fields that previous
+sessions had patched directly into that JSON (rather than encoding in
+a script) were silently lost the moment the workbook changed and
+`resolve_sites.py` was rerun:
+
+1. `rms_mgmt_area` override for `22N01E09B001M` and `22N01E20K001M`
+   (RMS-for-North despite sitting in Chico mgmt area). Losing this
+   caused North's Voronoi seed count to drop from 13 to 11 and
+   completely reshaped the North tessellation (e.g. `23N01W36P001M`
+   jumped from 7,088 to 15,307 ac) — caught before commit by comparing
+   against the previously-documented per-polygon areas.
+2. `carryover_from` override for `21N02E26E006M` → `21N02E26E005M`
+   (inherits the retired sibling's 2022 GSP MT/MO/IM). Losing this
+   flipped the well from "2022 GSP" (MT=36) to a freshly-computed
+   "AGWL Mirror" value (MT=18) — caught the same way.
+
+**Fix:** both overrides are now hardcoded dicts
+(`RMS_MGMT_AREA_OVERRIDE`, `CARRYOVER_FROM_OVERRIDE`) directly in
+`scripts/resolve_sites.py`, applied unconditionally on every run. This
+makes them durable — future workbook edits and re-runs will no longer
+silently drop them. If a *third* override of this kind is ever needed,
+it should go in `resolve_sites.py` the same way, not as a one-off
+patch to the generated JSON.
+
+`scripts/update_workbook_thresholds.py`'s `rms_label` generator was
+also generalized to list N RMS primaries by name (was hardcoded to the
+`len == 1` / "CWSCH01b" case); the auto-generated header comment in
+`polygons-data-three-zone.js` is now computed from the actual seed
+counts rather than hardcoded.
+
+Verification: re-ran the full pipeline after the override fix and
+confirmed every North/South polygon area matched the previously
+committed values exactly; confirmed the Chico aggregate's
+`rms_primary_swns` lists all 4 CWSCH RMS wells; confirmed the
+hydrograph renders 4 independent threshold-line sets when the Chico
+polygon is selected (each well's own MT/MO/IM, MT=85 for all four,
+MO/IM differing); confirmed §5.2 KPI counts (79 wells / 29 RMS / 26
+polygons) — note the RMS-wells KPI was changed from counting distinct
+(lat,lng) sites to counting raw `is_2027_gwl_rms` entries, since the
+old site-dedup logic was written when Chico had only 1 RMS well per
+site and would have undercounted the new 4-wells-one-site reality.
+
+Branch `chico-3-new-rms`; cache-buster bumped to `?v=17` (main.js),
+`?v=20` (readme-data.js), `?v=14` (wells-data.js), `?v=12`
+(polygons-data-three-zone.js).
+
+---
+
 ## Key methodological decisions
 
 | Decision | What we chose | Why |
@@ -672,7 +750,6 @@ pip3 install --user openpyxl pandas geopandas pyproj scipy shapely requests
 
 # Refresh the full pipeline (top-to-bottom)
 python3 scripts/resolve_sites.py               # → data/wells_resolved.json
-python3 scripts/build_polygons_single.py       # → data/vina_2027_thiessen_single.geojson + js/polygons-data-single.js
 python3 scripts/build_polygons_three_zone.py   # → data/vina_2027_thiessen_three_zone.geojson + js/polygons-data-three-zone.js
 python3 scripts/fetch_dwr_measurements.py      # → js/measurements-data.js (~3 min, 15 MB)
 python3 scripts/compute_thresholds.py          # → data/thresholds.json

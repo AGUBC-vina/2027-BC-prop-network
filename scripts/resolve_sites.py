@@ -20,6 +20,32 @@ XLSX = ROOT / "BC Network 2026 v8.xlsx"
 STATIONS = ROOT / "raw" / "stations.csv"
 OUT = ROOT / "data" / "wells_resolved.json"
 
+# Network-design overrides: wells physically located in one management
+# area (per the workbook's `Mgmt Area` column / mgmt_area_full) but
+# designated as RMS for a DIFFERENT network's monitoring purposes. The
+# polygon build keys Voronoi-seed membership on rms_mgmt_area, not
+# mgmt_area_full, so these two wells seed North-zone Voronoi cells even
+# though they sit inside the Chico management area boundary. This dict
+# is the durable source of truth for that override — it is NOT encoded
+# anywhere in the xlsx, so it must be re-applied here on every run
+# rather than hand-patched into wells_resolved.json (which is
+# regenerated, and gitignored, on every resolve_sites.py run).
+RMS_MGMT_AREA_OVERRIDE = {
+    "22N01E09B001M": "01-Vina-North",
+    "22N01E20K001M": "01-Vina-North",
+}
+
+# Carryover-from-retired-sibling overrides: a 2027 RMS well that is NOT
+# itself a 2022 GSP RMS well, but sits at the same physical site as one
+# that was retired from the 2027 network (different completion depth),
+# inherits that retired sibling's adopted 2022 MT/MO/IM rather than
+# getting an AGWL Mirror baseline. Same durability concern as
+# RMS_MGMT_AREA_OVERRIDE above — not encoded in the xlsx, must be
+# reapplied here on every run.
+CARRYOVER_FROM_OVERRIDE = {
+    "21N02E26E006M": "21N02E26E005M",
+}
+
 
 def load_wells():
     wb = openpyxl.load_workbook(XLSX, data_only=True)
@@ -30,6 +56,8 @@ def load_wells():
             continue
         wells.append({
             "mgmt_area_full": row[0],
+            "rms_mgmt_area": RMS_MGMT_AREA_OVERRIDE.get(row[1], row[0]),
+            "carryover_from": CARRYOVER_FROM_OVERRIDE.get(row[1]),
             "swn_or_name": row[1],
             "well_depth": row[2],
             "is_2022_gwl_rms": row[3] == "Yes",
