@@ -30,6 +30,101 @@
     ["2020-01-01", "2022-12-31"],
   ];
 
+  /* -------------- strawman overlays (Vina GSA memo, 2026-06-18) ---------- */
+  // The 5 RMS wells the GWL Strawman proposes for non-regulatory Local
+  // Management Levels (LMLs) in GDE-sensitive areas — the shallow RMS wells
+  // identified as representing regional shallow groundwater conditions.
+  // LML = MO minus an offset; the memo's discussion starting point is
+  // 10-20 ft below MO, and the §5.3 slider explores 0-30 ft in 5-ft steps.
+  // Reaching an LML would trigger investigation and adaptive management,
+  // NOT an undesirable result. Nothing here is adopted.
+  const LML_SWNS = [
+    "23N01W09E001M",  // North — Sacramento River corridor
+    "23N01W27L001M",  // North
+    "23N01W36P001M",  // North
+    "22N01E20K001M",  // North network (well physically in Chico mgmt area)
+    "21N02E32E001M",  // South — Durham area
+  ];
+  const LML_COLOR = "#00838f";   // dark cyan — LML line + polygon highlight
+  // Current LML slider offset (ft below MO). Default 15 = midpoint of the
+  // memo's suggested 10-20 ft starting range.
+  let lmlOffsetFt = 15;
+
+  /* -------------- ESA GDE scenario overlay (§5.2) ----------------------- */
+  // ESA GDE Technical Study (March 2026): 1,228 mapped NCCAG polygon
+  // centroids, each flagged "likely GDE" (1) or not under SIX hydrologic
+  // scenarios. The count of "likely" centroids per scenario reproduces ESA
+  // TM Table 3 exactly (464/100/64/38/21/17) — so toggling the scenario
+  // dropdown shows how strongly the "likely GDE" footprint depends on the
+  // scenario choice, relative to the RMS cells and proposed-LML polygons.
+  // Data: js/gde-centroids-data.js -> const GDE_CENTROIDS.
+  const GDE_SCENARIOS = [
+    { key: "spring_p90",  field: "roots_p90_spring",  n: 1, label: "Spring 90th percentile", count: 464 },
+    { key: "spring_2015", field: "roots_2015_spring", n: 2, label: "Spring 2015 (critically dry)", count: 100 },
+    { key: "spring_2021", field: "roots_2021_spring", n: 3, label: "Spring 2021 (lowest year)", count: 64 },
+    { key: "fall_p90",    field: "roots_p90_fall",    n: 4, label: "Fall 90th percentile", count: 38 },
+    { key: "fall_2015",   field: "roots_2015_fall",   n: 5, label: "Fall 2015 (critically dry)", count: 21 },
+    { key: "fall_2021",   field: "roots_2021_fall",   n: 6, label: "Fall 2021 (lowest year)", count: 17 },
+  ];
+  const GDE_LIKELY_COLOR = "#1f8f4e";
+  const GDE_OTHER_COLOR  = "#b9b9b9";
+  let gdeScenarioKey = "spring_p90";
+  let gdeLayer = null;
+  let gdeLegend = null;
+
+  function gdeScenario() {
+    return GDE_SCENARIOS.find((s) => s.key === gdeScenarioKey) || GDE_SCENARIOS[0];
+  }
+
+  // Canvas-rendered (perf: 1,228 points, same pattern as the domestic
+  // overlay), non-interactive. Not-likely centroids draw faint underneath;
+  // this-scenario "likely" centroids draw green on top.
+  function buildGdeLayer() {
+    const sc = gdeScenario();
+    const canvas = L.canvas({ padding: 0.5, pane: "gdePane" });
+    const layer = L.layerGroup();
+    const src = (typeof GDE_CENTROIDS !== "undefined") ? GDE_CENTROIDS : [];
+    const likely = [], other = [];
+    src.forEach((c) => {
+      if (c.lat == null || c.lon == null) return;
+      (c[sc.field] === 1 ? likely : other).push(c);
+    });
+    other.forEach((c) => layer.addLayer(L.circleMarker([c.lat, c.lon], {
+      radius: 2, fillColor: GDE_OTHER_COLOR, fillOpacity: 0.35,
+      weight: 0, opacity: 0, renderer: canvas, interactive: false, pane: "gdePane",
+    })));
+    likely.forEach((c) => layer.addLayer(L.circleMarker([c.lat, c.lon], {
+      radius: 4, fillColor: GDE_LIKELY_COLOR, fillOpacity: 0.85,
+      color: "#0c5c2e", weight: 0.5, opacity: 0.9, renderer: canvas,
+      interactive: false, pane: "gdePane",
+    })));
+    return layer;
+  }
+
+  function refreshGdeLayer() {
+    if (!map) return;
+    const on = !!($("#tog-gde") && $("#tog-gde").checked);
+    if (gdeLayer) { map.removeLayer(gdeLayer); gdeLayer = null; }
+    if (on) { gdeLayer = buildGdeLayer(); gdeLayer.addTo(map); }
+    updateGdeLegend(on);
+  }
+
+  function updateGdeLegend(on) {
+    if (!gdeLegend) return;
+    const div = gdeLegend.getContainer();
+    if (!div) return;
+    if (!on) { div.style.display = "none"; return; }
+    div.style.display = "block";
+    const sc = gdeScenario();
+    const total = (typeof GDE_CENTROIDS !== "undefined") ? GDE_CENTROIDS.length : 0;
+    div.innerHTML =
+      `<div style="font-weight:600;margin-bottom:2px;">ESA likely GDEs — Scenario ${sc.n} of 6</div>` +
+      `<div style="font-size:11px;color:#555;margin-bottom:6px;">${sc.label}</div>` +
+      `<div><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${GDE_LIKELY_COLOR};margin-right:6px;vertical-align:middle;"></span><b>${sc.count}</b> likely GDE areas</div>` +
+      `<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${GDE_OTHER_COLOR};margin-right:8px;vertical-align:middle;"></span>${(total - sc.count).toLocaleString()} mapped, not likely</div>` +
+      `<div style="font-size:10.5px;color:#888;margin-top:6px;">of ${total.toLocaleString()} ESA-mapped areas. Count reproduces ESA TM Table 3.</div>`;
+  }
+
   /* -------------- helpers ------------------------------------------------ */
   const $ = (sel) => document.querySelector(sel);
   function fmt(v, d = 2) {
@@ -193,6 +288,7 @@
 
   /* -------------- 5.2 Leaflet map --------------------------------------- */
   let map, polygonLayer, basinLayer, rms2027Layer, suppLayer, domesticLayer;
+  let lmlLayer, labelsLayer;
 
   /* -------------- MT sensitivity (domestic wells) ---------------------- */
   // Slider value (0–30 ft, the amount by which MT is hypothetically raised
@@ -373,6 +469,16 @@
     const inheritNote = w.carryover_from
       ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> MT/MO/IM inherited from <code>${w.carryover_from}</code>, the 2022 GSP RMS at this same lat/lng (different completion depth).</div>`
       : "";
+    // Proposed-LML note for the 5 strawman-designated wells. The value
+    // follows the §5.3 slider offset — popup content is a function, so it
+    // recomputes on every open.
+    const lmlNote = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn) && w.mo_ft != null)
+      ? `<div style="margin-top:4px;color:${LML_COLOR};font-size:11.5px;"><b>Proposed LML polygon (strawman 6/18/2026):</b> LML at MO &minus; ${lmlOffsetFt} ft = ${(w.mo_ft - lmlOffsetFt).toFixed(0)} ft msl. Non-regulatory trigger for GDE-sensitive areas — explore the offset with the §5.3 slider.</div>`
+      : "";
+    // County-Table-3 vs dashboard-Mirror cross-check flag (2 wells).
+    const divergenceNote = w.table3_divergence
+      ? `<div style="margin-top:6px;padding:5px 8px;background:#fff8e1;border-left:3px solid #f59e0b;font-size:11px;color:#7a5c00;line-height:1.4;"><b>&#9888; Threshold cross-check:</b> ${w.table3_divergence}</div>`
+      : "";
     // Domestic-well dry counts at this RMS well's polygon. Two lines,
     // both INDEPENDENT of the sensitivity slider (the slider drives the
     // hydrograph + sensitivity table, not the popup):
@@ -418,6 +524,8 @@
         <div><b>Role:</b> ${w.is_2027_gwl_rms ? "2027 Proposed RMS" : "Supplemental"}${w.is_2022_gwl_rms ? " · was 2022 RMS" : ""}</div>
         ${chicoNote}
         ${inheritNote}
+        ${lmlNote}
+        ${divergenceNote}
         ${wseLine}
         ${recordLine}
         ${nestedLine}
@@ -578,6 +686,15 @@
     // hit halos reliable when the user toggles polygon methods.
     map.createPane("polygonsPane");
     map.getPane("polygonsPane").style.zIndex = 400;
+    // ESA GDE centroids sit above the polygon fills but below the well
+    // markers so they never obscure an RMS/LML well. The layer is purely a
+    // non-interactive visual overlay, so the pane must NOT capture pointer
+    // events — otherwise its canvas (z 420) sits over the polygon SVG (z
+    // 400) and swallows polygon-selection clicks (which also drive the §5.3
+    // hydrograph and the LML slider).
+    map.createPane("gdePane");
+    map.getPane("gdePane").style.zIndex = 420;
+    map.getPane("gdePane").style.pointerEvents = "none";
     map.createPane("wellsPane");
     map.getPane("wellsPane").style.zIndex = 450;
 
@@ -619,6 +736,12 @@
     domesticLayer = buildDomesticLayer();
     // Not added to map by default; toggled via #tog-domestic below.
 
+    // Strawman overlay — proposed LML polygons; default hidden, toggled
+    // via #tog-lml below.
+    lmlLayer = buildLmlLayer();
+    // Well-name labels for every pin; default hidden, toggled via #tog-labels.
+    labelsLayer = buildLabelsLayer();
+
     // Fit to polygons
     const allBounds = L.featureGroup(Object.values(polygonRefs).map((r) => r.lp)).getBounds();
     map.fitBounds(allBounds, { padding: [20, 20] });
@@ -642,7 +765,97 @@
     $("#tog-domestic").addEventListener("change", (e) => {
       if (e.target.checked) domesticLayer.addTo(map); else map.removeLayer(domesticLayer);
     });
+    $("#tog-lml").addEventListener("change", (e) => {
+      if (e.target.checked) lmlLayer.addTo(map); else map.removeLayer(lmlLayer);
+    });
+    $("#tog-labels").addEventListener("change", (e) => {
+      if (e.target.checked) labelsLayer.addTo(map); else map.removeLayer(labelsLayer);
+    });
+    // ESA GDE scenario overlay: bottom-left legend control + toggle + dropdown.
+    gdeLegend = L.control({ position: "bottomleft" });
+    gdeLegend.onAdd = () => {
+      const div = L.DomUtil.create("div", "gde-legend");
+      div.style.display = "none";
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    };
+    gdeLegend.addTo(map);
+    $("#tog-gde").addEventListener("change", refreshGdeLayer);
+    $("#gde-scenario").addEventListener("change", (e) => {
+      gdeScenarioKey = e.target.value;
+      refreshGdeLayer();
+    });
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
+  }
+
+  // Overlay outlining the 5 polygons the strawman proposes for Local
+  // Management Levels. Non-interactive so clicks fall through to the base
+  // polygon (selection keeps working); drawn in polygonsPane, added after
+  // the base cells so it renders above them.
+  function buildLmlLayer() {
+    const layer = L.layerGroup();
+    RMS_POLYGONS.forEach((poly) => {
+      if (!LML_SWNS.includes(poly.rms_well_swn)) return;
+      layer.addLayer(L.polygon(poly.rings, {
+        pane: "polygonsPane",
+        color: LML_COLOR, weight: 3.5, dashArray: "8,5", opacity: 0.95,
+        fill: true, fillColor: LML_COLOR, fillOpacity: 0.10,
+        interactive: false,
+      }));
+    });
+    return layer;
+  }
+
+  /* -------------- well name labels (§5.2 toggle) ------------------------- */
+  // Short display name for a well: SWN-style names collapse to the
+  // section-tract-sequence tail ("23N01W09E001M" -> "09E001M"); other
+  // names (CWSCH01b etc.) are shown as-is.
+  function shortWellName(name) {
+    return /^\d{2}N\d{2}[EW]/.test(name || "") ? name.slice(-7) : (name || "");
+  }
+
+  // One label per map pin. Nested pads collapse to a pad-level label:
+  // the common name prefix plus a completion count ("28M ×4",
+  // "CWSCH ×7") — matching how the pads are referred to in the county
+  // materials. The pad marker's tabbed popup identifies the individual
+  // completions.
+  function siteLabelText(group) {
+    if (group.length === 1) return shortWellName(group[0].well_name || group[0].swn);
+    const shorts = group.map((g) => shortWellName(g.well_name || g.swn));
+    let prefix = shorts[0];
+    for (const s of shorts.slice(1)) {
+      while (prefix && !s.startsWith(prefix)) prefix = prefix.slice(0, -1);
+    }
+    prefix = prefix.replace(/\d+$/, "");
+    return `${prefix || shorts[0]} ×${group.length}`;
+  }
+
+  // Permanent short-name labels for every map pin (all 2027 RMS +
+  // supplemental sites), toggled via #tog-labels. Labels are anchored to
+  // invisible zero-size markers so they don't affect hit-testing.
+  function buildLabelsLayer() {
+    const layer = L.layerGroup();
+    const seen = new Set();
+    WELLS.forEach((w) => {
+      const sk = wellSiteKey[w.swn];
+      if (!sk || seen.has(sk)) return;
+      seen.add(sk);
+      const group = siteGroups[sk];
+      const hasRms = group.some((g) => g.is_2027_gwl_rms);
+      const markerR = group.length > 1 ? (hasRms ? 11 : 7) : (hasRms ? 9 : 5);
+      const anchor = L.circleMarker([+group[0].latitude, +group[0].longitude], {
+        pane: "wellsPane", radius: 0.1,
+        opacity: 0, fillOpacity: 0, weight: 0,
+        interactive: false,
+      });
+      anchor.bindTooltip(siteLabelText(group), {
+        permanent: true, direction: "right", offset: [markerR + 6, 0],
+        className: hasRms ? "well-label well-label-rms" : "well-label",
+        opacity: 1,
+      });
+      layer.addLayer(anchor);
+    });
+    return layer;
   }
 
   // Build the domestic-wells overlay layer. Canvas-rendered for performance
@@ -731,7 +944,10 @@
     $("#poly-header").style.display = "block";
     $("#poly-header-title").textContent = headerTitle;
     $("#poly-header-meta").textContent = `${wellsInside.length} well${wellsInside.length === 1 ? "" : "s"} in zone · ${poly.area_acres.toLocaleString()} acres`;
-    $("#poly-header-smc").innerHTML = `<strong>2027 GWL RMS well${rmsList.includes(",") ? "s" : ""}:</strong> ${rmsList}`;
+    const lmlCallout = (!poly.is_aggregate && LML_SWNS.includes(poly.rms_well_swn))
+      ? ` · <span style="color:${LML_COLOR}; font-weight:600;">Proposed LML polygon (strawman 6/18/2026)</span>`
+      : "";
+    $("#poly-header-smc").innerHTML = `<strong>2027 GWL RMS well${rmsList.includes(",") ? "s" : ""}:</strong> ${rmsList}${lmlCallout}`;
 
     // Visibility init: all wells ON by default
     const visibility = {};
@@ -752,6 +968,105 @@
     renderWellDetailTable();
     populateRMSPicker(poly);
     renderSensitivityTable();
+    updateLmlControls();
+  }
+
+  /* -------------- §5.3 proposed-LML widget (strawman 6/18/2026) --------- */
+  // The selected polygon's LML well, if the polygon is one of the 5 the
+  // strawman designates. All 5 are single-seed Voronoi cells, so
+  // rms_well_swn IS the well; the Chico aggregate is not an LML polygon.
+  function selectedLmlWell() {
+    if (!currentSelection || !currentSelection.poly) return null;
+    const poly = currentSelection.poly;
+    if (poly.is_aggregate || !LML_SWNS.includes(poly.rms_well_swn)) return null;
+    return WELLS.find((w) => w.swn === poly.rms_well_swn) || null;
+  }
+
+  function updateLmlControls() {
+    const box = $("#lml-controls");
+    if (!box) return;
+    const w = selectedLmlWell();
+    if (!w || w.mo_ft == null) { box.style.display = "none"; return; }
+    box.style.display = "flex";
+    const lml = w.mo_ft - lmlOffsetFt;
+    $("#lml-offset-slider").value = lmlOffsetFt;
+    $("#lml-offset-display").textContent = `${lmlOffsetFt} ft  (LML = ${lml.toFixed(0)} ft msl)`;
+    $("#lml-trigger-stats").innerHTML = lmlTriggerStatsHtml(w, lml);
+    $("#lml-gde-stats").innerHTML = gdePersistenceHtml(w);
+  }
+
+  // True if a "YYYY" year string falls inside one of the DROUGHT_PERIODS. Used
+  // to split LML trigger frequency into drought vs non-drought years — the
+  // non-drought exceedances are the ones that would fire a management response
+  // on something other than weather.
+  function isDroughtYear(yStr) {
+    const y = parseInt(yStr, 10);
+    return DROUGHT_PERIODS.some(([a, b]) =>
+      y >= parseInt(a.slice(0, 4), 10) && y <= parseInt(b.slice(0, 4), 10));
+  }
+
+  // Historical trigger frequency: of the LML well's QA-Good GWE record, how
+  // many readings — and how many distinct years — fall below the candidate
+  // LML at the current slider offset, split by drought vs non-drought year.
+  // Answers "how often would this trigger have fired historically, and would
+  // it have fired on something other than a drought dip?"
+  function lmlTriggerStatsHtml(w, lml) {
+    const good = getMeas(w).filter((r) =>
+      r.gwe != null && r.qa && r.qa.toLowerCase().includes("good"));
+    if (!good.length) return `<span style="color:#888;">no QA-Good record to evaluate</span>`;
+    const below = good.filter((r) => r.gwe < lml);
+    const years = new Set(good.map((r) => r.d.slice(0, 4)));
+    const yearsBelow = [...new Set(below.map((r) => r.d.slice(0, 4)))];
+    const nonDroughtYears = yearsBelow.filter((y) => !isDroughtYear(y));
+    const pctVal = (100 * below.length) / good.length;
+    const pct = pctVal.toFixed(pctVal > 0 && pctVal < 10 ? 1 : 0);
+    const latest = good[good.length - 1];
+    const latestState = latest.gwe < lml
+      ? `<b style="color:#b45309;">below</b>`
+      : `<b style="color:#1b5e20;">above</b>`;
+    const split = yearsBelow.length
+      ? ` — <b>${nonDroughtYears.length}</b> of those ${yearsBelow.length === 1 ? "was a non-drought year" : "were non-drought years"}${nonDroughtYears.length ? ` (${nonDroughtYears.sort().join(", ")})` : ""}`
+      : ` (never — including through the 2012&ndash;16 and 2020&ndash;22 droughts)`;
+    return `Historically <b>${below.length}</b> of ${good.length.toLocaleString()} QA-Good readings ` +
+      `(<b>${pct}%</b>) fell below this LML, in <b>${yearsBelow.length}</b> of ${years.size} years with data${split}. ` +
+      `Most recent QA-Good reading (${latest.d}): ${latest.gwe.toFixed(1)} ft msl — ${latestState} the LML.`;
+  }
+
+  // Great-circle distance in miles between two lat/lon points.
+  function haversineMi(lat1, lon1, lat2, lon2) {
+    const R = 3958.8, toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  // GDE persistence readout for a proposed-LML well: how many ESA "likely GDE"
+  // centroids sit near the well under the inclusive Spring-90th-pct scenario
+  // vs. how many of those persist into fall (roots_p90_fall), and the distance
+  // to the nearest polygon that persists past the spring peak. Makes the LML
+  // siting case visible: wells near the persistent Sacramento-corridor core vs.
+  // wells (e.g. 32E001M) whose nearby GDEs exist only at the spring peak.
+  const GDE_NEAR_MI = 1.5;
+  function gdePersistenceHtml(w) {
+    if (typeof GDE_CENTROIDS === "undefined" || w.latitude == null) return "";
+    let springNear = 0, fallNear = 0, nearestPersistMi = Infinity;
+    for (const c of GDE_CENTROIDS) {
+      if (c.lat == null || c.lon == null) continue;
+      const d = haversineMi(w.latitude, w.longitude, c.lat, c.lon);
+      if (c.roots_p90_fall === 1 && d < nearestPersistMi) nearestPersistMi = d;
+      if (d > GDE_NEAR_MI) continue;
+      if (c.roots_p90_spring === 1) springNear++;
+      if (c.roots_p90_fall === 1) fallNear++;
+    }
+    const nearest = nearestPersistMi === Infinity ? "—" : `${nearestPersistMi.toFixed(1)} mi`;
+    const persistNote = fallNear === 0
+      ? ` <span style="color:#b45309;">— none persist into fall/dry scenarios within ${GDE_NEAR_MI} mi</span>`
+      : "";
+    return `<b>Nearby likely GDEs (&le;${GDE_NEAR_MI} mi):</b> ` +
+      `Spring 90th pct <b>${springNear}</b> &middot; persist to fall <b>${fallNear}</b>${persistNote}. ` +
+      `Nearest GDE that persists past the spring peak: <b>${nearest}</b>. ` +
+      `<span style="color:#607d8b;font-size:11px;">(ESA GDE Technical Study centroids; use §5.2 "ESA GDE areas" + scenario dropdown to view the footprints.)</span>`;
   }
 
   function renderHydrograph(poly, insideWells) {
@@ -796,36 +1111,38 @@
       // Per-well thresholds for 2027 RMS wells.
       // Values are groundwater ELEVATIONS in ft msl, NOT depth-below-RPE.
       // Two sources are distinguished in the legend and line style:
-      //   "2022 GSP"    — adopted carry-over (dashed, solid name)
-      //   "AGWL Mirror" — Feb-April AGWL-anchored baseline pending GSA review
-      //                   (dotted line, "(AGWL mirror)" suffix in legend)
+      //   "2022 GSP"         — adopted carry-over (dashed, no suffix)
+      //   "Strawman Table 3" — county-published proposed values from the
+      //                        GWL Strawman memo (6/18/2026), dotted line,
+      //                        "(Strawman T3)" suffix in legend
+      const gse = w.gse != null ? +w.gse : null;
+      const toY = (val) => {
+        if (val == null) return null;
+        if (!isDtw) return { y: val, unitLabel: `${val.toFixed(1)} ft msl` };
+        if (gse == null) return null;
+        const y = gse - val;
+        return { y, unitLabel: `${y.toFixed(1)} ft below GSE` };
+      };
+      const pushLine = (val, label, lineColor, dash, width) => {
+        const conv = toY(val);
+        if (!conv) return;
+        traces.push({
+          x: ["1980-01-01", new Date().toISOString().slice(0, 10)],
+          y: [conv.y, conv.y],
+          mode: "lines", type: "scatter",
+          name: `${w.swn} ${label}: ${conv.unitLabel}`,
+          line: { color: lineColor, width: width || 1.6, dash },
+          hovertemplate: `${w.swn} ${label}: ${conv.unitLabel}<extra></extra>`,
+          visible,
+        });
+        here.push(tIdx++);
+      };
       if (w.is_2027_gwl_rms) {
-        const gse = w.gse != null ? +w.gse : null;
-        const isMirror = w.threshold_source === "AGWL Mirror";
-        const sourceSuffix = isMirror ? " (AGWL mirror)" : "";
-        const addThr = (val, label, lineColor, dashAdopted, dashMirror) => {
-          if (val == null) return;
-          let y, unitLabel;
-          if (isDtw) {
-            if (gse == null) return;
-            y = gse - val;
-            unitLabel = `${y.toFixed(1)} ft below GSE`;
-          } else {
-            y = val;
-            unitLabel = `${y.toFixed(1)} ft msl`;
-          }
-          traces.push({
-            x: ["1980-01-01", new Date().toISOString().slice(0, 10)],
-            y: [y, y],
-            mode: "lines", type: "scatter",
-            name: `${w.swn} ${label}: ${unitLabel}${sourceSuffix}`,
-            line: { color: lineColor, width: 1.6, dash: isMirror ? dashMirror : dashAdopted },
-            hovertemplate: `${w.swn} ${label}${sourceSuffix}: ${unitLabel}<extra></extra>`,
-            visible,
-          });
-          here.push(tIdx++);
-        };
-        // MO and MT: adopted=dash, mirror=dot
+        const isAdopted = w.threshold_source === "2022 GSP";
+        const sfx = isAdopted ? "" : " (Strawman T3)";
+        const addThr = (val, label, lineColor, dashAdopted, dashProposed) =>
+          pushLine(val, label + sfx, lineColor, isAdopted ? dashAdopted : dashProposed);
+        // MO and MT: adopted=dash, county-proposed=dot
         addThr(w.mo_ft, "MO", "#2a7", "dash", "dot");
         addThr(w.mt_ft, "MT", "#c00", "dash", "dot");
         // IM-2027 keeps dot in both modes (matches existing convention)
@@ -836,9 +1153,15 @@
         const isPolySeed = (poly.rms_well_swn === w.swn) ||
           (poly.is_aggregate && (poly.rms_primary_swns || []).includes(w.swn));
         if (mtRaiseFt > 0 && w.mt_ft != null && isPolySeed) {
-          addThr(w.mt_ft + mtRaiseFt,
-                 `MT + ${mtRaiseFt} ft (sensitivity)`,
-                 "#ff8c00", "dash", "dash");
+          pushLine(w.mt_ft + mtRaiseFt, `MT + ${mtRaiseFt} ft (sensitivity)`,
+                   "#ff8c00", "dash");
+        }
+        // Proposed LML line (strawman 6/18/2026) — only the 5 designated
+        // wells; level follows the §5.3 LML slider (MO minus offset).
+        if (LML_SWNS.includes(w.swn) && w.mo_ft != null) {
+          pushLine(w.mo_ft - lmlOffsetFt,
+                   `proposed LML (MO − ${lmlOffsetFt} ft)`,
+                   LML_COLOR, "dashdot", 2.2);
         }
       }
       traceIndices[w.swn] = here;
@@ -982,13 +1305,20 @@
         : "";
       let thresholdPill = "";
       if (w.is_2027_gwl_rms && w.threshold_source) {
-        const cls = w.threshold_source === "2022 GSP" ? "pill-thr-gsp" : "pill-thr-mirror";
-        const label = w.threshold_source === "2022 GSP" ? "GSP-adopted MT/MO" : "AGWL mirror MT/MO";
-        const tip = w.threshold_source === "2022 GSP"
+        const isAdopted = w.threshold_source === "2022 GSP";
+        const cls = isAdopted ? "pill-thr-gsp" : "pill-thr-mirror";
+        const label = isAdopted ? "GSP-adopted MT/MO" : "Strawman Table 3 MT/MO";
+        const tip = isAdopted
           ? "Thresholds carried over unchanged from the adopted 2022 Vina GSP."
-          : "Baseline thresholds derived from each well's average Feb-April groundwater level, anchored to the per-zone offset between AGWL and adopted 2022 GSP MT/MO/IM (Christina Buck AGWL Mirror methodology). Pending GSA review.";
+          : "County-published PROPOSED values from Table 3 of the GWL Strawman (Vina GSA memo, 6/18/2026), derived with the county's Comparable ASGWL method. Not adopted SMC. The dashboard's independently computed AGWL Mirror reproduces these exactly for 27 of 29 wells.";
         thresholdPill = ` <span class="pill ${cls}" title="${tip}">${label}</span>`;
+        if (w.table3_divergence) {
+          thresholdPill += ` <span class="pill pill-flag" title="${w.table3_divergence.replace(/"/g, "&quot;")}">&#9888; T3 &ne; Mirror</span>`;
+        }
       }
+      const lmlPill = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn))
+        ? ` <span class="pill pill-lml" title="One of the 5 RMS wells the GWL Strawman (6/18/2026) proposes for a non-regulatory Local Management Level in GDE-sensitive areas.">LML proposed</span>`
+        : "";
       const bcReason = (w.butte_co_reasoning || "").trim();
       // Show BC reasoning for ANY well that has it (not just RMS).
       // Use the well's SWN explicitly in the label so it's unambiguous which
@@ -1005,7 +1335,7 @@
             <input type="checkbox" data-well-toggle data-swn="${w.swn}" ${checked}>
           </td>
           <td class="well-name-cell" style="color:${color};">
-            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}${thresholdPill}
+            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}${thresholdPill}${lmlPill}
           </td>
           <td>${rmsPill}</td>
           <td>${contPill}</td>
@@ -1251,6 +1581,17 @@
     $("#tog-elev-correction").addEventListener("change", (e) => {
       elevCorrectionOn = e.target.checked;
       onSensitivityChange();
+    });
+    // Proposed-LML slider wiring (strawman overlay). Re-renders the LML
+    // readout + trigger stats, and the hydrograph when an LML polygon is
+    // on screen so the LML line tracks the slider.
+    $("#lml-offset-slider").addEventListener("input", (e) => {
+      lmlOffsetFt = +e.target.value;
+      updateLmlControls();
+      if (currentSelection && selectedLmlWell()) {
+        const insideWells = currentSelection.wellsWithColor.map((wc) => wc.well);
+        renderHydrograph(currentSelection.poly, insideWells);
+      }
     });
     // Auto-select first polygon
     if (RMS_POLYGONS.length > 0) {

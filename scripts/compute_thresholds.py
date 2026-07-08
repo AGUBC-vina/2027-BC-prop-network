@@ -69,6 +69,24 @@ Caveats baked into the README/PROJECT_NOTES:
 - Adopted MT/MO/IM remain the 2022 GSP values until the GSA formally
   updates them in the 2027 GSP cycle. The Mirror remains an internal
   working baseline for the dashboard.
+
+Post-2026-07-07 revision — county Table 3 display override:
+
+On 2026-06-18 the Vina GSA published the GWL Strawman memo ("GWL
+Strawman Final_6.18.2026", Attachment A Table 3) with county-computed
+proposed MT/MO/IM for the full 29-well 2027 RMS network, derived with
+the county's "Comparable" ASGWL method — conceptually the same
+approach the AGWL Mirror recreates. Display policy (Tovey, 2026-07-07):
+the dashboard now DISPLAYS the county's published Table 3 values
+(source label "Strawman Table 3") for the 17 non-carryover wells. The
+independently computed AGWL Mirror values are retained alongside in
+mirror_mt_ft / mirror_mo_ft / mirror_im_2027_ft as a cross-check —
+27 of 29 wells match Table 3 exactly; the 2 divergent wells
+(21N01E10B003M, 21N02E32E001M) carry a `table3_divergence` note that
+the dashboard surfaces in popups and the §5.3 table. For the 12
+carryover wells Table 3 equals the adopted 2022 GSP values; this
+script asserts that equality so any future upstream change or
+transcription error fails the build loudly.
 """
 from __future__ import annotations
 
@@ -85,6 +103,64 @@ OUT = ROOT / "data" / "thresholds.json"
 
 SPRING_MONTHS = {2, 3, 4}  # Feb, March, April — staff-selected window
 LOW_DATA_THRESHOLD = 5     # fewer than this many spring readings = flag
+
+# ---------------------------------------------------------------------------
+# County-published proposed MT/MO/IM-2027 — Table 3 of the GWL Strawman
+# (Vina GSA memo, 2026-06-18, "Consideration of a Strawman Proposal:
+# Approach to Addressing the Groundwater Level Sustainability Indicator
+# in the Periodic Evaluation..."), Attachment A. These are PROPOSED values
+# for stakeholder discussion, not adopted SMC. swn -> (MT, MO, IM-2027),
+# all groundwater elevations in ft msl.
+COUNTY_TABLE3 = {
+    # --- North (13) --------------------------------------------------------
+    "23N02W25C001M": (50, 130, 130),
+    "23N01W36P001M": (45, 108, 110),
+    "22N01W05M001M": (31, 115, 116),
+    "23N01E07H001M": (72, 136, 140),
+    "23N01W09E001M": (68, 135, 136),
+    "23N01W28M004M": (51, 118, 120),
+    "23N01W10M001M": (71, 138, 140),
+    "23N01W27L001M": (55, 121, 123),
+    "23N01W14R002M": (66, 132, 134),
+    "23N01E29P002M": (61, 127, 129),
+    "23N01E33A001M": (72, 125, 128),
+    "22N01E20K001M": (48, 115, 117),
+    "22N01E09B001M": (46, 113, 115),
+    # --- Chico (4) ---------------------------------------------------------
+    "CWSCH01b": (85, 106, 107),
+    "CWSCH02": (85, 105, 108),
+    "CWSCH03": (85, 108, 109),
+    "CWSCH07": (85, 95, 97),
+    # --- South (12) --------------------------------------------------------
+    "20N02E24C001M": (18, 77, 81),
+    "21N02E18C003M": (65, 130, 132),
+    "21N02E26E006M": (36, 95, 97),
+    "21N01E10B003M": (10, 64, 67),
+    "21N01E27D001M": (23, 84, 87),
+    "21N01E13L004M": (21, 82, 85),
+    "21N01E25K001M": (21, 83, 85),
+    "20N01E02H003M": (11, 73, 75),
+    "21N02E32E001M": (30, 91, 93),
+    "20N02E09G001M": (25, 87, 89),
+    "21N03E32B001M": (133, 195, 197),
+    "20N03E33L001M": (26, 87, 90),
+}
+
+# Per-well context appended to the auto-generated divergence note when the
+# county Table 3 values don't match the dashboard's independent Mirror.
+TABLE3_CONTEXT_NOTES = {
+    "21N01E10B003M": (
+        "The county's Table 3 row also appears internally inconsistent: its "
+        "printed ASGWL (102 ft) minus the published South-MA offsets "
+        "(92/30/28 ft) reproduces MT 10 but implies MO 72 / IM 74, not the "
+        "published MO 64 / IM 67."
+    ),
+    "21N02E32E001M": (
+        "Difference traces to the spring-average input: county ASGWL 122 ft "
+        "(Table 3) vs the dashboard's independent Feb-April AGWL ~117.6 ft — "
+        "likely record-window or QA-filter differences."
+    ),
+}
 
 
 def load_measurements() -> dict:
@@ -215,6 +291,17 @@ def main() -> None:
         carry_swn = name if name in carry else w.get("carryover_from")
         if carry_swn and carry_swn in carry:
             t = carry[carry_swn]
+            # County Table 3 restates the carryover values unchanged; assert
+            # so a transcription error here (or a future upstream change to
+            # either source) fails the build loudly instead of silently.
+            t3 = COUNTY_TABLE3.get(name)
+            if t3 is None:
+                raise SystemExit(f"{name}: 2027 RMS well missing from COUNTY_TABLE3")
+            if t3 != (round(t["mt_ft"]), round(t["mo_ft"]), round(t["im_2027_ft"])):
+                raise SystemExit(
+                    f"{name}: county Table 3 {t3} != 2022 GSP carryover "
+                    f"({t['mt_ft']}/{t['mo_ft']}/{t['im_2027_ft']})"
+                )
             note = (
                 f"inherited from {carry_swn} (nested sibling)"
                 if carry_swn != name else None
@@ -245,20 +332,31 @@ def main() -> None:
         rms_ma = w.get("rms_mgmt_area", w["mgmt_area_full"])
         zo = zone_offsets.get(rms_ma)
 
+        # Displayed values are the county-published Table 3 numbers; the
+        # dashboard's own Mirror derivation rides along as a cross-check.
+        t3 = COUNTY_TABLE3.get(name)
+        if t3 is None:
+            raise SystemExit(f"{name}: 2027 RMS well missing from COUNTY_TABLE3")
+
         if agwl is None or zo is None or zo["ave_delta_mt"] is None:
             rec = {
                 "swn": name,
                 "site_code": site,
                 "mgmt_area_full": w["mgmt_area_full"],
                 "rms_mgmt_area": rms_ma,
-                "source": "AGWL Mirror (no GWE data)",
-                "mt_ft": None,
-                "mo_ft": None,
-                "im_2027_ft": None,
+                "source": "Strawman Table 3",
+                "mt_ft": t3[0],
+                "mo_ft": t3[1],
+                "im_2027_ft": t3[2],
+                "mirror_mt_ft": None,
+                "mirror_mo_ft": None,
+                "mirror_im_2027_ft": None,
+                "table3_divergence": None,
                 "agwl_ft": None,
                 "alltime_min": None,
                 "n_spring_obs": n_spring,
                 "low_spring_data": True,
+                "note": "no DWR GWE record to cross-check the county values",
             }
             out.append(rec)
             continue
@@ -267,15 +365,33 @@ def main() -> None:
         mo_ft = round(agwl - zo["ave_delta_mo"]) if zo["ave_delta_mo"] is not None else None
         im_ft = round(agwl - zo["ave_delta_im"]) if zo["ave_delta_im"] is not None else None
 
+        # Auto-generated divergence note when the county's published values
+        # don't reproduce the dashboard's independent Mirror derivation.
+        divergence = None
+        if (mt_ft, mo_ft, im_ft) != t3:
+            divergence = (
+                f"County Table 3 (MT {t3[0]} / MO {t3[1]} / IM {t3[2]}) differs "
+                f"from the dashboard's independently computed AGWL Mirror "
+                f"(MT {mt_ft} / MO {mo_ft} / IM {im_ft}, from Feb-April AGWL "
+                f"{agwl:.1f} ft)."
+            )
+            extra = TABLE3_CONTEXT_NOTES.get(name)
+            if extra:
+                divergence += " " + extra
+
         rec = {
             "swn": name,
             "site_code": site,
             "mgmt_area_full": w["mgmt_area_full"],
             "rms_mgmt_area": rms_ma,
-            "source": "AGWL Mirror",
-            "mt_ft": mt_ft,
-            "mo_ft": mo_ft,
-            "im_2027_ft": im_ft,
+            "source": "Strawman Table 3",
+            "mt_ft": t3[0],
+            "mo_ft": t3[1],
+            "im_2027_ft": t3[2],
+            "mirror_mt_ft": mt_ft,
+            "mirror_mo_ft": mo_ft,
+            "mirror_im_2027_ft": im_ft,
+            "table3_divergence": divergence,
             "agwl_ft": round(agwl, 2),
             "alltime_min": round(alltime_min, 2) if alltime_min is not None else None,
             "n_spring_obs": n_spring,
@@ -292,13 +408,18 @@ def main() -> None:
     OUT.write_text(json.dumps(out, indent=2))
 
     n_adopted = sum(1 for r in out if r["source"] == "2022 GSP")
-    n_mirror = sum(1 for r in out if r["source"].startswith("AGWL Mirror"))
-    n_low = sum(1 for r in out if r.get("low_spring_data") and r["source"].startswith("AGWL Mirror"))
+    n_t3 = sum(1 for r in out if r["source"] == "Strawman Table 3")
+    n_low = sum(1 for r in out if r.get("low_spring_data") and r["source"] == "Strawman Table 3")
+    n_diverge = sum(1 for r in out if r.get("table3_divergence"))
     print(f"\nWrote {OUT}")
     print(f"  total RMS wells: {len(out)}")
-    print(f"    adopted (2022 GSP):  {n_adopted}")
-    print(f"    new (AGWL Mirror):   {n_mirror}")
+    print(f"    adopted (2022 GSP):        {n_adopted}")
+    print(f"    county (Strawman Table 3): {n_t3}")
     print(f"      ...with thin spring data (<{LOW_DATA_THRESHOLD}): {n_low}")
+    print(f"      ...where county Table 3 != dashboard Mirror:      {n_diverge}")
+    for r in out:
+        if r.get("table3_divergence"):
+            print(f"         {r['swn']}: {r['table3_divergence']}")
 
     print(f"\n{'Well':<18} {'mgmt':<15} {'source':<14} {'AGWL':>8} "
           f"{'MT':>5} {'MO':>5} {'IM':>5} {'n_spr':>6}")
