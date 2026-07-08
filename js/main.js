@@ -50,6 +50,81 @@
   // memo's suggested 10-20 ft starting range.
   let lmlOffsetFt = 15;
 
+  /* -------------- ESA GDE scenario overlay (§5.2) ----------------------- */
+  // ESA GDE Technical Study (March 2026): 1,228 mapped NCCAG polygon
+  // centroids, each flagged "likely GDE" (1) or not under SIX hydrologic
+  // scenarios. The count of "likely" centroids per scenario reproduces ESA
+  // TM Table 3 exactly (464/100/64/38/21/17) — so toggling the scenario
+  // dropdown shows how strongly the "likely GDE" footprint depends on the
+  // scenario choice, relative to the RMS cells and proposed-LML polygons.
+  // Data: js/gde-centroids-data.js -> const GDE_CENTROIDS.
+  const GDE_SCENARIOS = [
+    { key: "spring_p90",  field: "roots_p90_spring",  n: 1, label: "Spring 90th percentile", count: 464 },
+    { key: "spring_2015", field: "roots_2015_spring", n: 2, label: "Spring 2015 (critically dry)", count: 100 },
+    { key: "spring_2021", field: "roots_2021_spring", n: 3, label: "Spring 2021 (lowest year)", count: 64 },
+    { key: "fall_p90",    field: "roots_p90_fall",    n: 4, label: "Fall 90th percentile", count: 38 },
+    { key: "fall_2015",   field: "roots_2015_fall",   n: 5, label: "Fall 2015 (critically dry)", count: 21 },
+    { key: "fall_2021",   field: "roots_2021_fall",   n: 6, label: "Fall 2021 (lowest year)", count: 17 },
+  ];
+  const GDE_LIKELY_COLOR = "#1f8f4e";
+  const GDE_OTHER_COLOR  = "#b9b9b9";
+  let gdeScenarioKey = "spring_p90";
+  let gdeLayer = null;
+  let gdeLegend = null;
+
+  function gdeScenario() {
+    return GDE_SCENARIOS.find((s) => s.key === gdeScenarioKey) || GDE_SCENARIOS[0];
+  }
+
+  // Canvas-rendered (perf: 1,228 points, same pattern as the domestic
+  // overlay), non-interactive. Not-likely centroids draw faint underneath;
+  // this-scenario "likely" centroids draw green on top.
+  function buildGdeLayer() {
+    const sc = gdeScenario();
+    const canvas = L.canvas({ padding: 0.5, pane: "gdePane" });
+    const layer = L.layerGroup();
+    const src = (typeof GDE_CENTROIDS !== "undefined") ? GDE_CENTROIDS : [];
+    const likely = [], other = [];
+    src.forEach((c) => {
+      if (c.lat == null || c.lon == null) return;
+      (c[sc.field] === 1 ? likely : other).push(c);
+    });
+    other.forEach((c) => layer.addLayer(L.circleMarker([c.lat, c.lon], {
+      radius: 2, fillColor: GDE_OTHER_COLOR, fillOpacity: 0.35,
+      weight: 0, opacity: 0, renderer: canvas, interactive: false, pane: "gdePane",
+    })));
+    likely.forEach((c) => layer.addLayer(L.circleMarker([c.lat, c.lon], {
+      radius: 4, fillColor: GDE_LIKELY_COLOR, fillOpacity: 0.85,
+      color: "#0c5c2e", weight: 0.5, opacity: 0.9, renderer: canvas,
+      interactive: false, pane: "gdePane",
+    })));
+    return layer;
+  }
+
+  function refreshGdeLayer() {
+    if (!map) return;
+    const on = !!($("#tog-gde") && $("#tog-gde").checked);
+    if (gdeLayer) { map.removeLayer(gdeLayer); gdeLayer = null; }
+    if (on) { gdeLayer = buildGdeLayer(); gdeLayer.addTo(map); }
+    updateGdeLegend(on);
+  }
+
+  function updateGdeLegend(on) {
+    if (!gdeLegend) return;
+    const div = gdeLegend.getContainer();
+    if (!div) return;
+    if (!on) { div.style.display = "none"; return; }
+    div.style.display = "block";
+    const sc = gdeScenario();
+    const total = (typeof GDE_CENTROIDS !== "undefined") ? GDE_CENTROIDS.length : 0;
+    div.innerHTML =
+      `<div style="font-weight:600;margin-bottom:2px;">ESA likely GDEs — Scenario ${sc.n} of 6</div>` +
+      `<div style="font-size:11px;color:#555;margin-bottom:6px;">${sc.label}</div>` +
+      `<div><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${GDE_LIKELY_COLOR};margin-right:6px;vertical-align:middle;"></span><b>${sc.count}</b> likely GDE areas</div>` +
+      `<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${GDE_OTHER_COLOR};margin-right:8px;vertical-align:middle;"></span>${(total - sc.count).toLocaleString()} mapped, not likely</div>` +
+      `<div style="font-size:10.5px;color:#888;margin-top:6px;">of ${total.toLocaleString()} ESA-mapped areas. Count reproduces ESA TM Table 3.</div>`;
+  }
+
   /* -------------- helpers ------------------------------------------------ */
   const $ = (sel) => document.querySelector(sel);
   function fmt(v, d = 2) {
@@ -611,6 +686,10 @@
     // hit halos reliable when the user toggles polygon methods.
     map.createPane("polygonsPane");
     map.getPane("polygonsPane").style.zIndex = 400;
+    // ESA GDE centroids sit above the polygon fills but below the well
+    // markers so they never obscure an RMS/LML well.
+    map.createPane("gdePane");
+    map.getPane("gdePane").style.zIndex = 420;
     map.createPane("wellsPane");
     map.getPane("wellsPane").style.zIndex = 450;
 
@@ -686,6 +765,20 @@
     });
     $("#tog-labels").addEventListener("change", (e) => {
       if (e.target.checked) labelsLayer.addTo(map); else map.removeLayer(labelsLayer);
+    });
+    // ESA GDE scenario overlay: bottom-left legend control + toggle + dropdown.
+    gdeLegend = L.control({ position: "bottomleft" });
+    gdeLegend.onAdd = () => {
+      const div = L.DomUtil.create("div", "gde-legend");
+      div.style.display = "none";
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    };
+    gdeLegend.addTo(map);
+    $("#tog-gde").addEventListener("change", refreshGdeLayer);
+    $("#gde-scenario").addEventListener("change", (e) => {
+      gdeScenarioKey = e.target.value;
+      refreshGdeLayer();
     });
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
   }

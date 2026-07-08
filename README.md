@@ -47,7 +47,8 @@ Built from `BC Network 2026 v8.xlsx`.
 
 - **§5.2** — Interactive Leaflet map (basin boundary, 26 polygons,
   all 79 wells with layer toggles for 2027 RMS / supplemental / domestic
-  wells / well-name labels / proposed LML polygons).
+  wells / well-name labels / proposed LML polygons / ESA GDE areas with a
+  six-scenario dropdown).
 - **§5.3** — Per-polygon hydrograph (Plotly) with MT / MO / IM-2027 threshold
   lines for every 2027 RMS well (2022 GSP carryovers dashed, Strawman
   Table 3 dotted), a proposed-LML slider with historical trigger-frequency
@@ -529,6 +530,22 @@ Dashboard features:
   i.e. how often the trigger would have fired historically at each
   offset. This is the number to watch when weighing whether a given
   offset is an early-warning level or a de-facto operating constraint.
+
+### ESA GDE areas — six-scenario overlay
+
+A §5.2 toggle ("ESA GDE areas") overlays the **1,228 GDE polygon
+centroids** from the Vina GSA GDE Technical Study (ESA, March 2026),
+with a **scenario dropdown (1–6)**. Each centroid carries a "likely
+GDE" flag under six hydrologic scenarios; the count of likely centroids
+per scenario reproduces **ESA TM Table 3 exactly**: Spring 90th pct
+**464**, Spring 2015 **100**, Spring 2021 **64**, Fall 90th pct **38**,
+Fall 2015 **21**, Fall 2021 **17**. Switching scenarios shows how
+strongly the "likely GDE" footprint depends on the season/year choice,
+relative to the RMS cells and proposed-LML polygons. Likely centroids
+render solid green; the remaining mapped areas render faint grey; an
+on-map legend reports the scenario and counts. Points are centroids
+(not filled polygon areas); data is `js/gde-centroids-data.js`, copied
+from the sibling `vina-stream-connectivity` repo.
 
 ### Finding pins on the map
 

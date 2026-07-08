@@ -712,6 +712,30 @@ two same-latitude east-neighbor pairs: 28M-pad/27L001M and
 28F001M/27D001M). Legend split into solid/dashed chips. Cache-busters:
 main.js `?v=19`, readme-data.js `?v=22`.
 
+Fourth follow-up (2026-07-08): (a) **ESA GDE scenario overlay** added
+to §5.2 — a "ESA GDE areas" toggle + a 6-scenario dropdown over the
+1,228 GDE polygon centroids from the ESA GDE Technical Study
+(March 2026). Data copied from the sibling `vina-stream-connectivity`
+repo (`data/gde-centroids-data.js` -> `js/gde-centroids-data.js`,
+`const GDE_CENTROIDS`, 1,228 recs, each with 6 `roots_*` likely flags).
+Canvas-rendered (non-interactive) in a dedicated `gdePane` (z-index 420,
+between polygons 400 and wells 450): likely-this-scenario = solid green,
+others = faint grey; bottom-left on-map legend reports scenario + counts.
+The per-scenario likely counts reproduce ESA TM Table 3 exactly
+(464/100/64/38/21/17) — verified in the build. Purpose: show how the
+"likely GDE" footprint depends on the scenario choice, relative to the
+RMS + LML polygons; the green cluster sits in the NW Sacramento River
+corridor over the northern LML polygons. Only the scenario dropdown is
+ported — NOT the connectivity dashboard's color-mode / surface / year /
+shallow-wells / contour controls (Tovey's scope). (b) `.well-label`
+font bumped 10px -> 13.5px (Tovey couldn't read them). Cache-busters:
+main.js `?v=22`, readme-data.js `?v=25`, wells-data.js `?v=16`,
+gde-centroids-data.js `?v=1`.
+
+See also the GDE/TNC advocacy workstream — the reframed "Working
+Technical Notes" (non-record strawman for Christina) live in the sibling
+`vina-stream-connectivity` repo, not here.
+
 Third follow-up (2026-07-08): TNC ecological-threshold overlay REMOVED
 at Tovey's request — only the proposed-LML overlay remains. Deleted the
 `tnc_*` fields + CSV loader from `build_wells_js.py`, `data/tnc_
