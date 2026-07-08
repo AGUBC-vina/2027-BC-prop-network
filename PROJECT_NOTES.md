@@ -748,8 +748,10 @@ preview against the standalone Node analysis (exact match). main.js
 `?v=24`. Context: [[project_gde_tnc_advocacy]].
 
 See also the GDE/TNC advocacy workstream — the reframed "Working
-Technical Notes" (non-record strawman for Christina) live in the sibling
-`vina-stream-connectivity` repo, not here.
+Technical Notes" (non-record strawman for Christina) and the fallback
+comment letter / talking points live in
+`00 COWORK/Projects/tag agubc/2027 GDE-LML Comments/` (moved there
+2026-07-08), not in any repo.
 
 Third follow-up (2026-07-08): TNC ecological-threshold overlay REMOVED
 at Tovey's request — only the proposed-LML overlay remains. Deleted the
