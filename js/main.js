@@ -717,17 +717,45 @@
   // Green halo rings around the 9 wells with TNC ecological-threshold
   // recommendations (6 of them 2027 RMS, 3 supplemental). Non-interactive;
   // the well's own popup carries the recommended value.
+  //
+  // Ring style encodes the TNC completion's role: SOLID ring = 2027 RMS
+  // well, DASHED ring = supplemental completion. This matters on nested
+  // pads: 23N01W28M005M (supplemental) shares a pin with RMS well
+  // 23N01W28M004M, so without the dash the pad would read as "an RMS well
+  // with a TNC threshold". The ring radius is sized from the marker
+  // actually rendered at the pad (nested pads collapse into one larger
+  // marker), so the ring always clears the marker. A permanent short-name
+  // label makes the 9 wells findable while the toggle is on.
   function buildTncLayer() {
     const layer = L.layerGroup();
-    WELLS.forEach((w) => {
-      if (w.tnc_eco_threshold_ft == null) return;
-      if (w.latitude == null || w.longitude == null) return;
-      layer.addLayer(L.circleMarker([w.latitude, w.longitude], {
+    const tncWells = WELLS.filter((w) =>
+      w.tnc_eco_threshold_ft != null && w.latitude != null && w.longitude != null);
+    tncWells.forEach((w) => {
+      const pad = siteGroups[wellSiteKey[w.swn]] || [w];
+      const padHasRms = pad.some((p) => p.is_2027_gwl_rms);
+      const markerR = pad.length > 1 ? (padHasRms ? 11 : 7) : (w.is_2027_gwl_rms ? 9 : 5);
+      const ring = L.circleMarker([w.latitude, w.longitude], {
         pane: "wellsPane",
-        radius: (w.is_2027_gwl_rms ? 9 : 5) + 5,
+        radius: markerR + 5,
         color: TNC_COLOR, weight: 3, opacity: 0.95,
+        dashArray: w.is_2027_gwl_rms ? null : "5,5",
         fill: false, interactive: false,
-      }));
+      });
+      // Label goes left when another TNC well sits just to the east at
+      // nearly the same latitude (the 28M-pad/27L001M and 28F001M/27D001M
+      // pairs), so neighboring labels don't overlap.
+      const short = w.swn.slice(-7);
+      const eastNeighbor = tncWells.some((o) => o.swn !== w.swn
+        && Math.abs(o.latitude - w.latitude) < 0.01
+        && o.longitude > w.longitude && o.longitude - w.longitude < 0.05);
+      ring.bindTooltip(short, {
+        permanent: true,
+        direction: eastNeighbor ? "left" : "right",
+        offset: [eastNeighbor ? -(markerR + 7) : (markerR + 7), 0],
+        className: "tnc-label",
+        opacity: 1,
+      });
+      layer.addLayer(ring);
     });
     return layer;
   }

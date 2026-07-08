@@ -549,7 +549,14 @@ exact well TNC named — no reassignment to nearby RMS wells.
 - **Where it shows up.** A bright-green dashed line on the §5.3
   hydrograph for each of the 9 wells (including the 3 supplementals,
   labeled by well name), a "TNC eco" pill in the §5.3 table, the value
-  in each well's popup, and a §5.2 map toggle that halos the 9 wells.
+  in each well's popup, and a §5.2 map toggle that rings the 9 wells
+  with permanent short-name labels. **Solid ring = 2027 RMS well;
+  dashed ring = supplemental completion.** The dash matters on nested
+  pads: `23N01W28M005M` (supplemental) shares its map pin with RMS well
+  `23N01W28M004M`, and `23N01W31M004M` sits on a ×4 all-supplemental
+  pad — without the dash the 28M pad would read as a seventh RMS
+  threshold. Ring radius is sized from the pad's rendered marker so
+  the ring always clears nested markers.
 
 Note the overlap: 5 of the 9 TNC wells are also the strawman's proposed
 LML wells, so §5.3 lets you compare the county's LML-below-MO approach
