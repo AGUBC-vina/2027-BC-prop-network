@@ -214,7 +214,7 @@
 
   /* -------------- 5.2 Leaflet map --------------------------------------- */
   let map, polygonLayer, basinLayer, rms2027Layer, suppLayer, domesticLayer;
-  let lmlLayer, tncLayer;
+  let lmlLayer, tncLayer, labelsLayer;
 
   /* -------------- MT sensitivity (domestic wells) ---------------------- */
   // Slider value (0–30 ft, the amount by which MT is hypothetically raised
@@ -663,6 +663,8 @@
     // Both default hidden; toggled via #tog-lml / #tog-tnc below.
     lmlLayer = buildLmlLayer();
     tncLayer = buildTncLayer();
+    // Well-name labels for every pin; default hidden, toggled via #tog-labels.
+    labelsLayer = buildLabelsLayer();
 
     // Fit to polygons
     const allBounds = L.featureGroup(Object.values(polygonRefs).map((r) => r.lp)).getBounds();
@@ -692,6 +694,9 @@
     });
     $("#tog-tnc").addEventListener("change", (e) => {
       if (e.target.checked) tncLayer.addTo(map); else map.removeLayer(tncLayer);
+    });
+    $("#tog-labels").addEventListener("change", (e) => {
+      if (e.target.checked) labelsLayer.addTo(map); else map.removeLayer(labelsLayer);
     });
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
   }
@@ -728,34 +733,71 @@
   // label makes the 9 wells findable while the toggle is on.
   function buildTncLayer() {
     const layer = L.layerGroup();
-    const tncWells = WELLS.filter((w) =>
-      w.tnc_eco_threshold_ft != null && w.latitude != null && w.longitude != null);
-    tncWells.forEach((w) => {
+    WELLS.forEach((w) => {
+      if (w.tnc_eco_threshold_ft == null) return;
+      if (w.latitude == null || w.longitude == null) return;
       const pad = siteGroups[wellSiteKey[w.swn]] || [w];
       const padHasRms = pad.some((p) => p.is_2027_gwl_rms);
       const markerR = pad.length > 1 ? (padHasRms ? 11 : 7) : (w.is_2027_gwl_rms ? 9 : 5);
-      const ring = L.circleMarker([w.latitude, w.longitude], {
+      layer.addLayer(L.circleMarker([w.latitude, w.longitude], {
         pane: "wellsPane",
         radius: markerR + 5,
         color: TNC_COLOR, weight: 3, opacity: 0.95,
         dashArray: w.is_2027_gwl_rms ? null : "5,5",
         fill: false, interactive: false,
+      }));
+    });
+    return layer;
+  }
+
+  /* -------------- well name labels (§5.2 toggle) ------------------------- */
+  // Short display name for a well: SWN-style names collapse to the
+  // section-tract-sequence tail ("23N01W09E001M" -> "09E001M"); other
+  // names (CWSCH01b etc.) are shown as-is.
+  function shortWellName(name) {
+    return /^\d{2}N\d{2}[EW]/.test(name || "") ? name.slice(-7) : (name || "");
+  }
+
+  // One label per map pin. Nested pads collapse to a pad-level label:
+  // the common name prefix plus a completion count ("28M ×4",
+  // "CWSCH ×7") — matching how the pads are referred to in the county
+  // materials. The pad marker's tabbed popup identifies the individual
+  // completions.
+  function siteLabelText(group) {
+    if (group.length === 1) return shortWellName(group[0].well_name || group[0].swn);
+    const shorts = group.map((g) => shortWellName(g.well_name || g.swn));
+    let prefix = shorts[0];
+    for (const s of shorts.slice(1)) {
+      while (prefix && !s.startsWith(prefix)) prefix = prefix.slice(0, -1);
+    }
+    prefix = prefix.replace(/\d+$/, "");
+    return `${prefix || shorts[0]} ×${group.length}`;
+  }
+
+  // Permanent short-name labels for every map pin (all 2027 RMS +
+  // supplemental sites), toggled via #tog-labels. Labels are anchored to
+  // invisible zero-size markers so they don't affect hit-testing.
+  function buildLabelsLayer() {
+    const layer = L.layerGroup();
+    const seen = new Set();
+    WELLS.forEach((w) => {
+      const sk = wellSiteKey[w.swn];
+      if (!sk || seen.has(sk)) return;
+      seen.add(sk);
+      const group = siteGroups[sk];
+      const hasRms = group.some((g) => g.is_2027_gwl_rms);
+      const markerR = group.length > 1 ? (hasRms ? 11 : 7) : (hasRms ? 9 : 5);
+      const anchor = L.circleMarker([+group[0].latitude, +group[0].longitude], {
+        pane: "wellsPane", radius: 0.1,
+        opacity: 0, fillOpacity: 0, weight: 0,
+        interactive: false,
       });
-      // Label goes left when another TNC well sits just to the east at
-      // nearly the same latitude (the 28M-pad/27L001M and 28F001M/27D001M
-      // pairs), so neighboring labels don't overlap.
-      const short = w.swn.slice(-7);
-      const eastNeighbor = tncWells.some((o) => o.swn !== w.swn
-        && Math.abs(o.latitude - w.latitude) < 0.01
-        && o.longitude > w.longitude && o.longitude - w.longitude < 0.05);
-      ring.bindTooltip(short, {
-        permanent: true,
-        direction: eastNeighbor ? "left" : "right",
-        offset: [eastNeighbor ? -(markerR + 7) : (markerR + 7), 0],
-        className: "tnc-label",
+      anchor.bindTooltip(siteLabelText(group), {
+        permanent: true, direction: "right", offset: [markerR + 6, 0],
+        className: hasRms ? "well-label well-label-rms" : "well-label",
         opacity: 1,
       });
-      layer.addLayer(ring);
+      layer.addLayer(anchor);
     });
     return layer;
   }

@@ -712,6 +712,24 @@ two same-latitude east-neighbor pairs: 28M-pad/27L001M and
 28F001M/27D001M). Legend split into solid/dashed chips. Cache-busters:
 main.js `?v=19`, readme-data.js `?v=22`.
 
+Second follow-up (same day): labeling only the 9 TNC wells read as
+inconsistent, so the ring labels were replaced by a general §5.2
+**"Show well name labels"** toggle covering every map pin
+(`buildLabelsLayer()` in main.js, `.well-label` CSS, blue text for
+RMS-bearing pins, gray for supplemental-only). One label per pin:
+single wells get the short SWN via `shortWellName()` ("09E001M");
+nested pads get a common-prefix pad label with completion count via
+`siteLabelText()` ("28M ×4", "31M ×4", "28J ×3", "CWSCH ×7"). Labels
+anchor to invisible zero-radius circleMarkers so hit-testing is
+unaffected; default off. The underlying source of Tovey's "7 RMS with
+thresholds" reading: the 28M pin renders as ONE RMS-style marker for a
+4-completion nest (72 ft to 1,044 ft deep); TNC's threshold there is
+on the shallow supplemental completion 28M005M (72 ft, screen
+30-50 ft), not the RMS completion 28M004M (207 ft, screens
+120-130/155-165 ft) — i.e., TNC targeted the water-table screen, which
+the RMS well does not measure. Cache-busters: main.js `?v=20`,
+readme-data.js `?v=23`.
+
 ---
 
 ## Key methodological decisions
