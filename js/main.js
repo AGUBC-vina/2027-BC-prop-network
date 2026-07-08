@@ -687,9 +687,14 @@
     map.createPane("polygonsPane");
     map.getPane("polygonsPane").style.zIndex = 400;
     // ESA GDE centroids sit above the polygon fills but below the well
-    // markers so they never obscure an RMS/LML well.
+    // markers so they never obscure an RMS/LML well. The layer is purely a
+    // non-interactive visual overlay, so the pane must NOT capture pointer
+    // events — otherwise its canvas (z 420) sits over the polygon SVG (z
+    // 400) and swallows polygon-selection clicks (which also drive the §5.3
+    // hydrograph and the LML slider).
     map.createPane("gdePane");
     map.getPane("gdePane").style.zIndex = 420;
+    map.getPane("gdePane").style.pointerEvents = "none";
     map.createPane("wellsPane");
     map.getPane("wellsPane").style.zIndex = 450;
 
