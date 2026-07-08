@@ -48,7 +48,8 @@ Built from `BC Network 2026 v8.xlsx`.
 
 - **§5.2** — Interactive Leaflet map (basin boundary, 26 polygons,
   all 79 wells with layer toggles for 2027 RMS / supplemental / domestic
-  wells / proposed LML polygons / TNC eco-threshold wells).
+  wells / well-name labels / proposed LML polygons / TNC eco-threshold
+  wells).
 - **§5.3** — Per-polygon hydrograph (Plotly) with MT / MO / IM-2027 threshold
   lines for every 2027 RMS well (2022 GSP carryovers dashed, Strawman
   Table 3 dotted), a proposed-LML slider with historical trigger-frequency
@@ -549,14 +550,20 @@ exact well TNC named — no reassignment to nearby RMS wells.
 - **Where it shows up.** A bright-green dashed line on the §5.3
   hydrograph for each of the 9 wells (including the 3 supplementals,
   labeled by well name), a "TNC eco" pill in the §5.3 table, the value
-  in each well's popup, and a §5.2 map toggle that rings the 9 wells
-  with permanent short-name labels. **Solid ring = 2027 RMS well;
-  dashed ring = supplemental completion.** The dash matters on nested
-  pads: `23N01W28M005M` (supplemental) shares its map pin with RMS well
-  `23N01W28M004M`, and `23N01W31M004M` sits on a ×4 all-supplemental
-  pad — without the dash the 28M pad would read as a seventh RMS
-  threshold. Ring radius is sized from the pad's rendered marker so
-  the ring always clears nested markers.
+  in each well's popup, and a §5.2 map toggle that rings the 9 wells.
+  **Solid ring = 2027 RMS well; dashed ring = supplemental
+  completion.** The dash matters on nested pads: `23N01W28M005M`
+  (supplemental, 72 ft deep, screened 30–50 ft) shares its map pin
+  with RMS well `23N01W28M004M` (207 ft deep, screened 120–165 ft) —
+  the pin renders as one RMS-style marker for the whole 4-completion
+  pad, but TNC's threshold there applies to the shallow water-table
+  completion, not the RMS screen. `23N01W31M004M` similarly sits on a
+  ×4 all-supplemental pad. Ring radius is sized from the pad's
+  rendered marker so the ring always clears nested markers. To
+  identify pins, use the §5.2 **"Show well name labels"** toggle —
+  single wells get their short SWN (`09E001M`), nested pads get a pad
+  label with completion count (`28M ×4`); the pad marker's tabbed
+  popup identifies which completion carries the TNC value.
 
 Note the overlap: 5 of the 9 TNC wells are also the strawman's proposed
 LML wells, so §5.3 lets you compare the county's LML-below-MO approach
