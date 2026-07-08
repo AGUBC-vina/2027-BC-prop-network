@@ -10,16 +10,6 @@ Joins:
                                   scripts/compute_thresholds.py; 6 supplemental
                                   Chico nested completions are unthresholded
                                   per 2022 GSP convention)
-    - data/tnc_ecological_thresholds.csv
-                                 (TNC "Ecological Threshold Recommendations -
-                                  Vina Subbasin", 9 wells. UNITS NOTE: the
-                                  CSV column headers say "(ft bgs)" but the
-                                  values are groundwater ELEVATIONS in ft msl
-                                  — TNC's per-well hydrograph PDFs plot the
-                                  same numbers on a "Groundwater Elevation
-                                  (ft)" axis, and read as depths they would
-                                  be physically impossible, e.g. 147 ft bgs
-                                  in the 110-ft-deep well 23N01W09E001M.)
 
 Output schema (one element per well in the xlsx):
     well_name, swn, site_code, mgmt_area_full, mgmt_area, well_depth,
@@ -35,18 +25,13 @@ Output schema (one element per well in the xlsx):
                          (dashboard's independent AGWL Mirror cross-check;
                           null for carryovers and non-RMS)
     table3_divergence    (note string when county Table 3 != Mirror, else null)
-    tnc_eco_threshold_ft, tnc_mean_summer_gwe_ft, tnc_sd_summer_ft,
-    tnc_rpe_ft           (TNC recommendation fields, ft msl; null for the
-                          70 wells TNC did not evaluate)
 """
-import csv
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WELLS_JSON = ROOT / "data" / "wells_resolved.json"
 THRESH_JSON = ROOT / "data" / "thresholds.json"
-TNC_CSV = ROOT / "data" / "tnc_ecological_thresholds.csv"
 OUT = ROOT / "js" / "wells-data.js"
 
 MA_SHORT = {
@@ -56,33 +41,9 @@ MA_SHORT = {
 }
 
 
-def load_tnc() -> dict:
-    """TNC ecological threshold recommendations, keyed by well SWN.
-
-    Values in the CSV are groundwater elevations in ft msl despite the
-    "(ft bgs)" column headers (see module docstring). The recommended
-    threshold works out to roughly (mean summer GWE - 1.3 sd), i.e. about
-    the 10th percentile of historically observed summer levels.
-    """
-    tnc = {}
-    with TNC_CSV.open(newline="") as f:
-        for row in csv.DictReader(f):
-            name = (row.get("WELL_NAME") or "").strip()
-            if not name:
-                continue
-            tnc[name] = {
-                "tnc_rpe_ft": float(row["RPE"]),
-                "tnc_mean_summer_gwe_ft": float(row["mean_gwe_summer (ft bgs)"]),
-                "tnc_sd_summer_ft": float(row["sd_gwe_summer (ft bgs)"]),
-                "tnc_eco_threshold_ft": float(row["recommended_ecological_threshold (ft bgs)"]),
-            }
-    return tnc
-
-
 def main():
     wells = json.loads(WELLS_JSON.read_text())
     thresholds = {t["swn"]: t for t in json.loads(THRESH_JSON.read_text())}
-    tnc = load_tnc()
 
     out = []
     for w in wells:
@@ -135,13 +96,6 @@ def main():
             "mirror_im_2027_ft": thresh.get("mirror_im_2027_ft"),
             "table3_divergence": thresh.get("table3_divergence"),
         }
-        # TNC ecological threshold recommendation fields (9 wells).
-        rec.update(tnc.get(name, {
-            "tnc_rpe_ft": None,
-            "tnc_mean_summer_gwe_ft": None,
-            "tnc_sd_summer_ft": None,
-            "tnc_eco_threshold_ft": None,
-        }))
         out.append(rec)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -153,16 +107,11 @@ def main():
     n_2027 = sum(1 for r in out if r["is_2027_gwl_rms"])
     n_2022 = sum(1 for r in out if r["is_2022_gwl_rms"])
     n_thresh = sum(1 for r in out if r["mt_ft"] is not None)
-    n_tnc = sum(1 for r in out if r["tnc_eco_threshold_ft"] is not None)
-    unmatched_tnc = sorted(set(tnc) - {r["swn"] for r in out if r["tnc_eco_threshold_ft"] is not None})
-    if unmatched_tnc:
-        raise SystemExit(f"TNC wells not found in the network: {unmatched_tnc}")
     print(f"Wrote {OUT}")
     print(f"  total wells: {len(out)}")
     print(f"  2022 RMS:    {n_2022}")
     print(f"  2027 RMS:    {n_2027}")
     print(f"  w/ MT/MO:    {n_thresh}")
-    print(f"  w/ TNC eco threshold: {n_tnc} (all {len(tnc)} CSV wells matched)")
 
 
 if __name__ == "__main__":
