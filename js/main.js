@@ -46,7 +46,6 @@
     "21N02E32E001M",  // South — Durham area
   ];
   const LML_COLOR = "#00838f";   // dark cyan — LML line + polygon highlight
-  const TNC_COLOR = "#00c853";   // bright green — matches TNC's own charts
   // Current LML slider offset (ft below MO). Default 15 = midpoint of the
   // memo's suggested 10-20 ft starting range.
   let lmlOffsetFt = 15;
@@ -214,7 +213,7 @@
 
   /* -------------- 5.2 Leaflet map --------------------------------------- */
   let map, polygonLayer, basinLayer, rms2027Layer, suppLayer, domesticLayer;
-  let lmlLayer, tncLayer, labelsLayer;
+  let lmlLayer, labelsLayer;
 
   /* -------------- MT sensitivity (domestic wells) ---------------------- */
   // Slider value (0–30 ft, the amount by which MT is hypothetically raised
@@ -401,11 +400,6 @@
     const lmlNote = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn) && w.mo_ft != null)
       ? `<div style="margin-top:4px;color:${LML_COLOR};font-size:11.5px;"><b>Proposed LML polygon (strawman 6/18/2026):</b> LML at MO &minus; ${lmlOffsetFt} ft = ${(w.mo_ft - lmlOffsetFt).toFixed(0)} ft msl. Non-regulatory trigger for GDE-sensitive areas — explore the offset with the §5.3 slider.</div>`
       : "";
-    // TNC recommendation line for the 9 wells TNC evaluated (values are
-    // groundwater elevations in ft msl; see README units note).
-    const tncNote = (w.tnc_eco_threshold_ft != null)
-      ? `<div style="margin-top:4px;color:#1b5e20;font-size:11.5px;"><b>TNC recommended ecological threshold:</b> ${w.tnc_eco_threshold_ft.toFixed(1)} ft msl <span style="color:#777;">(mean summer GWE ${w.tnc_mean_summer_gwe_ft.toFixed(1)} ft msl, sd ${w.tnc_sd_summer_ft.toFixed(1)} ft)</span></div>`
-      : "";
     // County-Table-3 vs dashboard-Mirror cross-check flag (2 wells).
     const divergenceNote = w.table3_divergence
       ? `<div style="margin-top:6px;padding:5px 8px;background:#fff8e1;border-left:3px solid #f59e0b;font-size:11px;color:#7a5c00;line-height:1.4;"><b>&#9888; Threshold cross-check:</b> ${w.table3_divergence}</div>`
@@ -456,7 +450,6 @@
         ${chicoNote}
         ${inheritNote}
         ${lmlNote}
-        ${tncNote}
         ${divergenceNote}
         ${wseLine}
         ${recordLine}
@@ -659,10 +652,9 @@
     domesticLayer = buildDomesticLayer();
     // Not added to map by default; toggled via #tog-domestic below.
 
-    // Strawman overlays — proposed LML polygons + TNC eco-threshold wells.
-    // Both default hidden; toggled via #tog-lml / #tog-tnc below.
+    // Strawman overlay — proposed LML polygons; default hidden, toggled
+    // via #tog-lml below.
     lmlLayer = buildLmlLayer();
-    tncLayer = buildTncLayer();
     // Well-name labels for every pin; default hidden, toggled via #tog-labels.
     labelsLayer = buildLabelsLayer();
 
@@ -692,9 +684,6 @@
     $("#tog-lml").addEventListener("change", (e) => {
       if (e.target.checked) lmlLayer.addTo(map); else map.removeLayer(lmlLayer);
     });
-    $("#tog-tnc").addEventListener("change", (e) => {
-      if (e.target.checked) tncLayer.addTo(map); else map.removeLayer(tncLayer);
-    });
     $("#tog-labels").addEventListener("change", (e) => {
       if (e.target.checked) labelsLayer.addTo(map); else map.removeLayer(labelsLayer);
     });
@@ -714,37 +703,6 @@
         color: LML_COLOR, weight: 3.5, dashArray: "8,5", opacity: 0.95,
         fill: true, fillColor: LML_COLOR, fillOpacity: 0.10,
         interactive: false,
-      }));
-    });
-    return layer;
-  }
-
-  // Green halo rings around the 9 wells with TNC ecological-threshold
-  // recommendations (6 of them 2027 RMS, 3 supplemental). Non-interactive;
-  // the well's own popup carries the recommended value.
-  //
-  // Ring style encodes the TNC completion's role: SOLID ring = 2027 RMS
-  // well, DASHED ring = supplemental completion. This matters on nested
-  // pads: 23N01W28M005M (supplemental) shares a pin with RMS well
-  // 23N01W28M004M, so without the dash the pad would read as "an RMS well
-  // with a TNC threshold". The ring radius is sized from the marker
-  // actually rendered at the pad (nested pads collapse into one larger
-  // marker), so the ring always clears the marker. A permanent short-name
-  // label makes the 9 wells findable while the toggle is on.
-  function buildTncLayer() {
-    const layer = L.layerGroup();
-    WELLS.forEach((w) => {
-      if (w.tnc_eco_threshold_ft == null) return;
-      if (w.latitude == null || w.longitude == null) return;
-      const pad = siteGroups[wellSiteKey[w.swn]] || [w];
-      const padHasRms = pad.some((p) => p.is_2027_gwl_rms);
-      const markerR = pad.length > 1 ? (padHasRms ? 11 : 7) : (w.is_2027_gwl_rms ? 9 : 5);
-      layer.addLayer(L.circleMarker([w.latitude, w.longitude], {
-        pane: "wellsPane",
-        radius: markerR + 5,
-        color: TNC_COLOR, weight: 3, opacity: 0.95,
-        dashArray: w.is_2027_gwl_rms ? null : "5,5",
-        fill: false, interactive: false,
       }));
     });
     return layer;
@@ -1055,13 +1013,6 @@
                    LML_COLOR, "dashdot", 2.2);
         }
       }
-      // TNC recommended ecological threshold — drawn for any well TNC
-      // evaluated (6 RMS + 3 supplemental), bright green to match TNC's
-      // own published hydrographs.
-      if (w.tnc_eco_threshold_ft != null) {
-        pushLine(w.tnc_eco_threshold_ft, "TNC eco threshold",
-                 TNC_COLOR, "longdash", 2);
-      }
       traceIndices[w.swn] = here;
     });
     if (currentSelection) currentSelection.traceIndices = traceIndices;
@@ -1217,9 +1168,6 @@
       const lmlPill = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn))
         ? ` <span class="pill pill-lml" title="One of the 5 RMS wells the GWL Strawman (6/18/2026) proposes for a non-regulatory Local Management Level in GDE-sensitive areas.">LML proposed</span>`
         : "";
-      const tncPill = (w.tnc_eco_threshold_ft != null)
-        ? ` <span class="pill pill-tnc" title="TNC recommended ecological threshold: ${w.tnc_eco_threshold_ft.toFixed(1)} ft msl (≈ mean summer GWE − 1.3 sd).">TNC eco</span>`
-        : "";
       const bcReason = (w.butte_co_reasoning || "").trim();
       // Show BC reasoning for ANY well that has it (not just RMS).
       // Use the well's SWN explicitly in the label so it's unambiguous which
@@ -1236,7 +1184,7 @@
             <input type="checkbox" data-well-toggle data-swn="${w.swn}" ${checked}>
           </td>
           <td class="well-name-cell" style="color:${color};">
-            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}${thresholdPill}${lmlPill}${tncPill}
+            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}${thresholdPill}${lmlPill}
           </td>
           <td>${rmsPill}</td>
           <td>${contPill}</td>

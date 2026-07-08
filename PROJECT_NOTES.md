@@ -712,7 +712,23 @@ two same-latitude east-neighbor pairs: 28M-pad/27L001M and
 28F001M/27D001M). Legend split into solid/dashed chips. Cache-busters:
 main.js `?v=19`, readme-data.js `?v=22`.
 
-Second follow-up (same day): labeling only the 9 TNC wells read as
+Third follow-up (2026-07-08): TNC ecological-threshold overlay REMOVED
+at Tovey's request — only the proposed-LML overlay remains. Deleted the
+`tnc_*` fields + CSV loader from `build_wells_js.py`, `data/tnc_
+ecological_thresholds.csv` (git rm; source still under
+`secondary/TNC Thresholds/`), and from `main.js` the `TNC_COLOR`
+constant, `tncLayer`, `buildTncLayer()`, the `#tog-tnc` toggle, the
+green hydrograph line, the popup note, and the `TNC eco` table pill;
+plus the corresponding index.html toggle/legend/CSS and README section.
+The general **"Show well name labels"** toggle was KEPT — it is useful
+independent of TNC (it was Tovey's fix for finding nested pads). Strawman
+Table 3 thresholds, the AGWL Mirror cross-check, and the LML overlay all
+stay. Context: the TNC ecological thresholds became a live advocacy issue
+(Vina GSA GDE debate); AGUBC is commenting to county staff rather than
+featuring TNC's numbers in the dashboard. Cache-busters: main.js `?v=21`,
+wells-data.js `?v=16`, readme-data.js `?v=24`.
+
+Second follow-up (2026-07-07): labeling only the 9 TNC wells read as
 inconsistent, so the ring labels were replaced by a general §5.2
 **"Show well name labels"** toggle covering every map pin
 (`buildLabelsLayer()` in main.js, `.well-label` CSS, blue text for

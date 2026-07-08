@@ -38,24 +38,21 @@ Built from `BC Network 2026 v8.xlsx`.
 > (`21N01E10B003M`, `21N02E32E001M`) are flagged in popups and the §5.3
 > table. The 6 Chico supplementals remain monitored but unthresholded.
 >
-> **Strawman overlays (added 2026-07-07):** the 5 proposed **LML
+> **Strawman overlay (added 2026-07-07):** the 5 proposed **LML
 > polygons** (non-regulatory Local Management Levels for GDE-sensitive
-> areas, explored with a MO − 0…30 ft slider in §5.3) and **TNC
-> ecological threshold** recommendations at 9 wells. See "Strawman
-> overlays" below.
+> areas, explored with a MO − 0…30 ft slider in §5.3). See "Strawman
+> overlay" below.
 >
 > See "Source 2" below and PROJECT_NOTES for full history.
 
 - **§5.2** — Interactive Leaflet map (basin boundary, 26 polygons,
   all 79 wells with layer toggles for 2027 RMS / supplemental / domestic
-  wells / well-name labels / proposed LML polygons / TNC eco-threshold
-  wells).
+  wells / well-name labels / proposed LML polygons).
 - **§5.3** — Per-polygon hydrograph (Plotly) with MT / MO / IM-2027 threshold
   lines for every 2027 RMS well (2022 GSP carryovers dashed, Strawman
   Table 3 dotted), a proposed-LML slider with historical trigger-frequency
-  readout for the 5 strawman-designated polygons, TNC eco-threshold lines
-  at the 9 TNC-evaluated wells, plus a per-polygon well-detail card and a
-  sortable record-count table.
+  readout for the 5 strawman-designated polygons, plus a per-polygon
+  well-detail card and a sortable record-count table.
 - **§5.4** — Same-month paired GWE scatter (1:1 line, Pearson R² in the
   legend) for representativeness comparison of supplemental wells against
   the polygon's RMS well.
@@ -99,7 +96,6 @@ GitHub Pages, S3, or open `index.html` directly.
 │   ├── wells_resolved.json                 Excel rows joined to DWR Stations
 │   ├── thresholds.json                     MT/MO/IM-2027 for the 2027 RMS wells (GSP carryovers + county Strawman Table 3, with the dashboard's AGWL Mirror cross-check in mirror_* fields); supplemental Chico nested completions are monitored but unthresholded
 │   ├── thresholds_2022.json                The adopted 2022 GSP MT/MO/IM values; used by compute_thresholds.py as the calibration sample for AGWL Mirror and as the carryover source for wells retained from the 2022 RMS network
-│   ├── tnc_ecological_thresholds.csv       TNC "Ecological Threshold Recommendations – Vina Subbasin" (9 wells; values are ft msl elevations despite the CSV's "(ft bgs)" headers — see Strawman overlays section)
 │   └── vina_2027_thiessen_three_zone.geojson  Three-zone polygons as GeoJSON
 ├── raw/                                    Cached raw downloads (gitignored)
 │   ├── stations.csv                        DWR CKAN periodic GWL Stations resource
@@ -484,11 +480,17 @@ blank.
 
 ---
 
-## Strawman overlays: proposed LMLs + TNC ecological thresholds (2026-07-07)
+## Strawman overlay: proposed LML polygons (2026-07-07)
 
-Two overlays added from the stakeholder materials circulating ahead of
-the 2027 Periodic Evaluation. **Both are proposals under discussion —
+Overlay added from the stakeholder materials circulating ahead of the
+2027 Periodic Evaluation. **These are proposals under discussion —
 nothing in this section is adopted SMC.**
+
+> An earlier revision of this branch also carried a TNC
+> ecological-threshold overlay (green rings + hydrograph lines at 9
+> wells). It was removed 2026-07-08 at the project lead's request; only
+> the LML overlay remains. The underlying source CSV lives outside the
+> repo under `secondary/TNC Thresholds/` if it is ever needed again.
 
 ### Proposed Local Management Level (LML) polygons
 
@@ -528,47 +530,15 @@ Dashboard features:
   offset. This is the number to watch when weighing whether a given
   offset is an early-warning level or a de-facto operating constraint.
 
-### TNC ecological threshold recommendations
+### Finding pins on the map
 
-TNC provided **"Ecological Threshold Recommendations – Vina Subbasin"**
-(bundled at `data/tnc_ecological_thresholds.csv`) covering **9 wells**:
-6 are 2027 RMS wells (`21N01E25K001M`, `21N01E27D001M`, `21N02E32E001M`,
-`22N01E20K001M`, `23N01W09E001M`, `23N01W27L001M`) and 3 are
-supplemental monitoring wells (`21N01E28F001M`, `23N01W28M005M`,
-`23N01W31M004M`). The dashboard attaches each recommendation to the
-exact well TNC named — no reassignment to nearby RMS wells.
-
-- **Units note.** The CSV column headers say "(ft bgs)" but the values
-  are groundwater **elevations in ft msl**: TNC's per-well hydrograph
-  PDFs plot the same numbers on a "Groundwater Elevation (ft)" axis,
-  and read as depths they would be physically impossible (e.g. a mean
-  summer level of 147 ft bgs at `23N01W09E001M`, a 110-ft-deep well).
-- **What the recommendation is.** Each threshold works out to roughly
-  the well's **mean summer GWE minus ~1.3 standard deviations** — about
-  the 10th percentile of historically observed summer levels, i.e.
-  "keep summer groundwater within its observed historical range."
-- **Where it shows up.** A bright-green dashed line on the §5.3
-  hydrograph for each of the 9 wells (including the 3 supplementals,
-  labeled by well name), a "TNC eco" pill in the §5.3 table, the value
-  in each well's popup, and a §5.2 map toggle that rings the 9 wells.
-  **Solid ring = 2027 RMS well; dashed ring = supplemental
-  completion.** The dash matters on nested pads: `23N01W28M005M`
-  (supplemental, 72 ft deep, screened 30–50 ft) shares its map pin
-  with RMS well `23N01W28M004M` (207 ft deep, screened 120–165 ft) —
-  the pin renders as one RMS-style marker for the whole 4-completion
-  pad, but TNC's threshold there applies to the shallow water-table
-  completion, not the RMS screen. `23N01W31M004M` similarly sits on a
-  ×4 all-supplemental pad. Ring radius is sized from the pad's
-  rendered marker so the ring always clears nested markers. To
-  identify pins, use the §5.2 **"Show well name labels"** toggle —
-  single wells get their short SWN (`09E001M`), nested pads get a pad
-  label with completion count (`28M ×4`); the pad marker's tabbed
-  popup identifies which completion carries the TNC value.
-
-Note the overlap: 5 of the 9 TNC wells are also the strawman's proposed
-LML wells, so §5.3 lets you compare the county's LML-below-MO approach
-against TNC's percentile-of-summer-record approach on the same
-hydrograph.
+The §5.2 **"Show well name labels"** toggle labels every map pin:
+single wells get their short SWN (`09E001M`), and nested pads (multiple
+completions at one lat/lng) get a pad label with a completion count
+(`28M ×4`, `CWSCH ×7`). The pad marker's tabbed popup lists each
+completion. This is useful because a nested pad renders as one marker,
+so a shallow supplemental completion and a deeper RMS completion at the
+same location share a single pin.
 
 ---
 
@@ -659,7 +629,6 @@ state.
 | Vina Subbasin boundary | DWR ArcGIS REST i08 B118 | `Basin_Subbasin_Number='5-021.57'` |
 | MT / MO / IM-2027 thresholds | 2022 Vina GSP (for the 12 carryover wells) + county Strawman Table 3 (for the 17 new wells), cross-checked by the dashboard's AGWL Mirror | see "MT / MO / IM-2027 threshold methodology" above |
 | Proposed LML designations (5 RMS wells) + proposed MT/MO/IM (Table 3) | Vina GSA GWL Strawman memo, 2026-06-18 ("Consideration of a Strawman Proposal: Approach to Addressing the Groundwater Level Sustainability Indicator...", Attachment A) | https://www.vinagsa.org/periodic-evaluation-supporting-documents |
-| TNC ecological threshold recommendations (9 wells) | TNC, "Ecological Threshold Recommendations – Vina Subbasin" | `data/tnc_ecological_thresholds.csv` (local file) |
 
 DWR refresh stamp is shown in the page header — it comes from
 `MEASUREMENTS_META.fetched_at` in `js/measurements-data.js`. To refresh, just
