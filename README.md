@@ -27,20 +27,33 @@ Built from `BC Network 2026 v8.xlsx`.
 >   plotted in §5.3 for hydrograph context but without threshold lines.
 > - **12 South** Voronoi cells, clipped to South mgmt area.
 >
-> **Threshold methodology (revised 2026-05-21):** 12 wells are direct
-> 2022 GSP carryovers (5 N, 3 S, 4 Chico = CWSCH01b/02/03/07); 17 wells
-> get the **AGWL Mirror** thresholds — each well's average Feb–April
+> **Threshold methodology (revised 2026-07-07):** 12 wells are direct
+> 2022 GSP carryovers (5 N, 3 S, 4 Chico = CWSCH01b/02/03/07); the other
+> 17 wells display the county-published **Strawman Table 3** proposed
+> values (GWL Strawman memo, 6/18/2026, Attachment A). The dashboard's
+> independently computed **AGWL Mirror** — each well's average Feb–April
 > groundwater level minus a per-zone offset calibrated against the 2022
-> GSP MT/MO/IM, as described in the methodology section below. The 6
-> Chico supplementals remain monitored but unthresholded.
+> GSP MT/MO/IM — rides along as a cross-check: it reproduces Table 3
+> exactly for **27 of 29** wells; the 2 divergent wells
+> (`21N01E10B003M`, `21N02E32E001M`) are flagged in popups and the §5.3
+> table. The 6 Chico supplementals remain monitored but unthresholded.
+>
+> **Strawman overlay (added 2026-07-07):** the 5 proposed **LML
+> polygons** (non-regulatory Local Management Levels for GDE-sensitive
+> areas, explored with a MO − 0…30 ft slider in §5.3). See "Strawman
+> overlay" below.
 >
 > See "Source 2" below and PROJECT_NOTES for full history.
 
 - **§5.2** — Interactive Leaflet map (basin boundary, 26 polygons,
-  all 79 wells with layer toggles for 2027 RMS / supplemental).
+  all 79 wells with layer toggles for 2027 RMS / supplemental / domestic
+  wells / well-name labels / proposed LML polygons / ESA GDE areas with a
+  six-scenario dropdown).
 - **§5.3** — Per-polygon hydrograph (Plotly) with MT / MO / IM-2027 threshold
-  lines where the 2022 GSP carried forward, plus a per-polygon well-detail
-  card and a sortable record-count table.
+  lines for every 2027 RMS well (2022 GSP carryovers dashed, Strawman
+  Table 3 dotted), a proposed-LML slider with historical trigger-frequency
+  readout for the 5 strawman-designated polygons, plus a per-polygon
+  well-detail card and a sortable record-count table.
 - **§5.4** — Same-month paired GWE scatter (1:1 line, Pearson R² in the
   legend) for representativeness comparison of supplemental wells against
   the polygon's RMS well.
@@ -82,7 +95,7 @@ GitHub Pages, S3, or open `index.html` directly.
 │   └── main.js                             UI logic (Leaflet, Plotly, layer toggles)
 ├── data/                                   Intermediate JSON for the JS bundles
 │   ├── wells_resolved.json                 Excel rows joined to DWR Stations
-│   ├── thresholds.json                     MT/MO/IM-2027 for the 2027 RMS wells (GSP carryovers + AGWL Mirror); supplemental Chico nested completions are monitored but unthresholded
+│   ├── thresholds.json                     MT/MO/IM-2027 for the 2027 RMS wells (GSP carryovers + county Strawman Table 3, with the dashboard's AGWL Mirror cross-check in mirror_* fields); supplemental Chico nested completions are monitored but unthresholded
 │   ├── thresholds_2022.json                The adopted 2022 GSP MT/MO/IM values; used by compute_thresholds.py as the calibration sample for AGWL Mirror and as the carryover source for wells retained from the 2022 RMS network
 │   └── vina_2027_thiessen_three_zone.geojson  Three-zone polygons as GeoJSON
 ├── raw/                                    Cached raw downloads (gitignored)
@@ -257,6 +270,11 @@ The total is within rounding of 184,400 ac (the Vina Subbasin).
 The dashboard shows Sustainable Management Criteria (SMC) threshold lines on
 every 2027 RMS well's hydrograph. Values come from one of two sources, both
 expressed as **groundwater elevation in ft msl** (not depth-below-RPE):
+the adopted 2022 GSP (12 carryover wells) and the county-published
+**Strawman Table 3** proposed values (17 wells new to the RMS network).
+The dashboard's own **AGWL Mirror** derivation — built before the county
+published its numbers, to faithfully recreate the 2022 methodology — is
+retained as an independent cross-check of Table 3.
 
 ### Source 1 — "2022 GSP" (adopted, 12 wells)
 
@@ -282,17 +300,33 @@ table.
 | CWSCH03 | Chico | 85 | 108 | 109 | |
 | CWSCH07 | Chico | 85 | 95 | 97 | |
 
-### Source 2 — "AGWL Mirror" (Feb–April AGWL methodology, 17 wells)
-
-AGWL Mirror has been developed to faithfully recreate MT/MO/IMs for new polygons that effectively mirror what was adopted in 2022.
+### Source 2 — "Strawman Table 3" (county-published proposed values, 17 wells)
 
 The other 17 wells in the 2027 RMS network were not RMS wells in 2022,
-so they have no carry-over GSP values. The **AGWL Mirror** baseline
-derives each well's MT/MO/IM from its own average
-Feb–April groundwater level and a per-management-area offset calibrated
-against the 2022 GSP MT/MO/IM. Rendered with **dotted** lines in §5.3
-hydrographs and labeled with the "AGWL mirror MT/MO" pill in the §5.3
-table.
+so they have no carry-over GSP values. As of the 2026-07-07 revision the
+dashboard **displays the county's published proposed MT/MO/IM** for these
+wells, from Table 3 of the GWL Strawman (Vina GSA memo, 6/18/2026,
+Attachment A), computed by county staff with their "Comparable" ASGWL
+method. These are **proposed values for stakeholder discussion, not
+adopted SMC**. Rendered with **dotted** lines in §5.3 hydrographs and
+labeled with the "Strawman Table 3 MT/MO" pill in the §5.3 table.
+
+#### The AGWL Mirror cross-check (27 of 29 exact)
+
+Before the county published Table 3, the dashboard derived its own
+baseline — the **AGWL Mirror** — to faithfully recreate MT/MO/IMs for
+new polygons mirroring what was adopted in 2022: each well's average
+Feb–April groundwater level minus a per-management-area offset
+calibrated against the 2022 GSP MT/MO/IM. The Mirror is retained in
+`data/thresholds.json` (`mirror_*` fields) as an independent
+verification of the county's numbers. Result: **the Mirror reproduces
+Table 3 exactly for 27 of 29 wells.** The two divergences are flagged
+in the dashboard (popup + §5.3 "⚠ T3 ≠ Mirror" pill):
+
+| Well | County Table 3 (MT/MO/IM) | Dashboard Mirror | Note |
+|---|---|---|---|
+| `21N01E10B003M` | 10 / 64 / 67 | 30 / 92 / 94 | The county row appears internally inconsistent: its printed ASGWL (102 ft) minus the published South-MA offsets (92/30/28 ft) reproduces MT 10 but implies MO 72 / IM 74, not the published MO 64 / IM 67. Dashboard Feb–April AGWL is 122.2 ft (38 spring readings). |
+| `21N02E32E001M` | 30 / 91 / 93 | 25 / 87 / 89 | Traces to the spring-average input: county ASGWL 122 ft vs dashboard Feb–April AGWL 117.6 ft (21 spring readings) — likely record-window or QA-filter differences. |
 
 #### Method
 
@@ -410,23 +444,25 @@ more stable, more defensible anchor.
 
 ### Caveats
 
-The Mirror methodology is a defensible interim baseline, not an adopted
-SMC. Specific limitations:
+Neither the county's Table 3 values nor the Mirror cross-check are
+adopted SMC. Specific limitations:
 
+- **Strawman Table 3 values are proposals for stakeholder discussion.**
+  Adopted MT/MO/IM remain the 2022 GSP values until the GSAs formally
+  update them in the 2027 GSP cycle. The dashboard displays Table 3 so
+  every polygon's hydrograph can be evaluated in the visual framework
+  the county has put in front of stakeholders.
 - **AGWL reflects the observed Feb–April record.** Wells with short
   records or sparse spring monitoring may understate or overstate
   typical conditions; estimates from such wells should be considered
-  conservative.
+  conservative. (This applies to the county's ASGWL inputs too — see
+  the two flagged divergences above, both wells with thin spring
+  records.)
 - **Zone offsets are descriptive statistics, not margins of safety or
   forward projections.** They do not account for drought severity,
   climate change, or pumping trajectories. They are a backward-looking
   calibration of how the GSA's 2022 MT/MO/IM relate to typical spring
   groundwater levels at the 2022 RMS wells.
-- **The Mirror is NOT a request for GSA approval.** Adopted MT/MO/IM
-  remain the 2022 GSP values until the GSA formally updates them in
-  the 2027 GSP cycle. The Mirror exists solely to give the dashboard
-  a complete set of comparison lines so every polygon's hydrograph can
-  be evaluated in the same visual framework.
 
 ### Rebuilding
 
@@ -439,8 +475,87 @@ python3 scripts/update_workbook_thresholds.py  # -> appends MT/MO/IM/Source colu
 The workbook now carries four trailing columns (W–Z) — `MT_ft`, `MO_ft`,
 `IM_2027_ft`, `Threshold_Source` — populated for the 29 wells in the
 2027 RMS network (matching `data/thresholds.json`), with 2022 GSP rows
-shaded light blue and AGWL Mirror rows shaded warm cream. The 6 Chico
-nested-completion supplementals are not RMS in 2027 and are left blank.
+shaded light blue and Strawman Table 3 rows shaded warm cream. The 6
+Chico nested-completion supplementals are not RMS in 2027 and are left
+blank.
+
+---
+
+## Strawman overlay: proposed LML polygons (2026-07-07)
+
+Overlay added from the stakeholder materials circulating ahead of the
+2027 Periodic Evaluation. **These are proposals under discussion —
+nothing in this section is adopted SMC.**
+
+> An earlier revision of this branch also carried a TNC
+> ecological-threshold overlay (green rings + hydrograph lines at 9
+> wells). It was removed 2026-07-08 at the project lead's request; only
+> the LML overlay remains. The underlying source CSV lives outside the
+> repo under `secondary/TNC Thresholds/` if it is ever needed again.
+
+### Proposed Local Management Level (LML) polygons
+
+The GWL Strawman (Vina GSA memo, 6/18/2026) introduces the concept of
+**Local Management Levels** — locally defined, *non-regulatory*
+management triggers set below the MO in GDE-sensitive areas, informed
+by the Yuba Subbasins GSP approach. Reaching an LML would prompt
+investigation, monitoring, and consideration of adaptive management
+actions already in the GSP; it would **not** define an undesirable
+result. The memo's discussion starting point is an LML **10–20 ft
+below the applicable MO**.
+
+The strawman designates **five 2027 RMS wells** — the shallow RMS wells
+identified as representing regional shallow groundwater conditions in
+GDE-sensitive areas (Sacramento River corridor + Durham area):
+
+| Polygon / well | Mgmt area | MO (ft msl) | MO − 15 ft |
+|---|---|---|---|
+| `23N01W09E001M` | North | 135 | 120 |
+| `23N01W27L001M` | North | 121 | 106 |
+| `23N01W36P001M` | North | 108 | 93 |
+| `22N01E20K001M` | North (well physically in Chico mgmt area) | 115 | 100 |
+| `21N02E32E001M` | South | 91 | 76 |
+
+Dashboard features:
+
+- **§5.2 map toggle** "Proposed LML polygons (strawman)" — dark-cyan
+  dashed outline over the five cells.
+- **§5.3 LML slider** (visible only when one of the five polygons is
+  selected) — explores LML = MO − 0…30 ft in 5-ft steps, defaulting to
+  15 ft (midpoint of the memo's 10–20 ft starting range). The
+  hydrograph draws the proposed LML line at the slider value.
+- **Historical trigger frequency** — for the selected LML well, the
+  widget reports how many QA-Good readings (and how many distinct
+  years) fell below the candidate LML across the well's DWR record,
+  i.e. how often the trigger would have fired historically at each
+  offset. This is the number to watch when weighing whether a given
+  offset is an early-warning level or a de-facto operating constraint.
+
+### ESA GDE areas — six-scenario overlay
+
+A §5.2 toggle ("ESA GDE areas") overlays the **1,228 GDE polygon
+centroids** from the Vina GSA GDE Technical Study (ESA, March 2026),
+with a **scenario dropdown (1–6)**. Each centroid carries a "likely
+GDE" flag under six hydrologic scenarios; the count of likely centroids
+per scenario reproduces **ESA TM Table 3 exactly**: Spring 90th pct
+**464**, Spring 2015 **100**, Spring 2021 **64**, Fall 90th pct **38**,
+Fall 2015 **21**, Fall 2021 **17**. Switching scenarios shows how
+strongly the "likely GDE" footprint depends on the season/year choice,
+relative to the RMS cells and proposed-LML polygons. Likely centroids
+render solid green; the remaining mapped areas render faint grey; an
+on-map legend reports the scenario and counts. Points are centroids
+(not filled polygon areas); data is `js/gde-centroids-data.js`, copied
+from the sibling `vina-stream-connectivity` repo.
+
+### Finding pins on the map
+
+The §5.2 **"Show well name labels"** toggle labels every map pin:
+single wells get their short SWN (`09E001M`), and nested pads (multiple
+completions at one lat/lng) get a pad label with a completion count
+(`28M ×4`, `CWSCH ×7`). The pad marker's tabbed popup lists each
+completion. This is useful because a nested pad renders as one marker,
+so a shallow supplemental completion and a deeper RMS completion at the
+same location share a single pin.
 
 ---
 
@@ -529,7 +644,8 @@ state.
 | DWR site_code resolution | DWR CKAN Stations resource | https://data.cnra.ca.gov/dataset/periodic-groundwater-level-measurements (resource `af157380-...`) |
 | Periodic GWL measurements | DWR CKAN Measurements resource | same dataset, resource `bfa9f262-24a1-45bd-8dc8-138bc8107266` (filtered to network sites via `datastore_search` API) |
 | Vina Subbasin boundary | DWR ArcGIS REST i08 B118 | `Basin_Subbasin_Number='5-021.57'` |
-| MT / MO / IM-2027 thresholds | 2022 Vina GSP (for the 12 carryover wells) + AGWL Mirror methodology applied to DWR Feb–April periodic measurements (for the 17 new wells) | see "MT / MO / IM-2027 threshold methodology" above |
+| MT / MO / IM-2027 thresholds | 2022 Vina GSP (for the 12 carryover wells) + county Strawman Table 3 (for the 17 new wells), cross-checked by the dashboard's AGWL Mirror | see "MT / MO / IM-2027 threshold methodology" above |
+| Proposed LML designations (5 RMS wells) + proposed MT/MO/IM (Table 3) | Vina GSA GWL Strawman memo, 2026-06-18 ("Consideration of a Strawman Proposal: Approach to Addressing the Groundwater Level Sustainability Indicator...", Attachment A) | https://www.vinagsa.org/periodic-evaluation-supporting-documents |
 
 DWR refresh stamp is shown in the page header — it comes from
 `MEASUREMENTS_META.fetched_at` in `js/measurements-data.js`. To refresh, just

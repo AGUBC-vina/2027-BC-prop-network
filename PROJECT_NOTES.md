@@ -645,6 +645,148 @@ Branch `chico-3-new-rms`; cache-buster bumped to `?v=17` (main.js),
 `?v=20` (readme-data.js), `?v=14` (wells-data.js), `?v=12`
 (polygons-data-three-zone.js).
 
+### 17. 2026-07-07 — Strawman Table 3 display + proposed-LML overlay + TNC eco thresholds
+
+Inputs: the county's GWL Strawman memo (Vina GSA, 6/18/2026 — "GWL
+Strawman Final_6.18.2026", Attachment A) and TNC's "Ecological
+Threshold Recommendations – Vina Subbasin" CSV (9 wells + per-well
+hydrograph PDFs), both under `secondary/` (gitignored); the TNC CSV is
+copied into the repo at `data/tnc_ecological_thresholds.csv`.
+
+**Threshold display switched to county Table 3 (17 non-carryover
+wells).** `compute_thresholds.py` gains a `COUNTY_TABLE3` constant (all
+29 wells transcribed from the memo) applied as the displayed MT/MO/IM
+with `source: "Strawman Table 3"`; the script's own AGWL Mirror
+derivation is retained per-well in `mirror_mt_ft/mirror_mo_ft/
+mirror_im_2027_ft`. Cross-check result: **Mirror reproduces Table 3
+exactly for 27 of 29 wells.** Divergences auto-flagged in a
+`table3_divergence` note surfaced in popups and a "⚠ T3 ≠ Mirror"
+pill: `21N01E10B003M` (county 10/64/67 vs Mirror 30/92/94; the county
+row is also internally inconsistent — printed ASGWL 102 minus South
+offsets 92/30/28 implies MO 72/IM 74, not the published 64/67) and
+`21N02E32E001M` (county 30/91/93 vs Mirror 25/87/89; county ASGWL 122
+vs dashboard Feb–April AGWL 117.6). For the 12 carryovers the script
+asserts Table 3 == 2022 GSP values so upstream changes fail the build.
+
+**Proposed-LML overlay (strawman).** The 5 designated wells
+(`23N01W09E001M`, `23N01W27L001M`, `23N01W36P001M`, `22N01E20K001M`,
+`21N02E32E001M`) live in a `LML_SWNS` constant in `main.js`. §5.2 gets
+a "Proposed LML polygons (strawman)" toggle (dark-cyan dashed overlay,
+non-interactive so clicks still select the base cell). §5.3 gets a
+teal LML widget — visible only when one of the 5 polygons is selected —
+with a MO − 0…30 ft slider (5-ft steps, default 15 = midpoint of the
+memo's 10–20 ft starting range), a dash-dot LML line on the
+hydrograph, and a historical trigger-frequency readout (share of
+QA-Good readings, and distinct years, below the candidate LML).
+Scope decision (Tovey): LML applies ONLY to the 5 designated polygons,
+mirroring the memo — no basin-wide exploration mode.
+
+**TNC ecological thresholds.** Units gotcha: the CSV headers say
+"(ft bgs)" but values are groundwater ELEVATIONS in ft msl — confirmed
+against TNC's own hydrograph PDFs (elevation axis) and by physical
+impossibility (147 "ft bgs" in a 110-ft well). Threshold ≈ mean summer
+GWE − 1.3 sd (~10th percentile of summer record). Joined into
+`wells-data.js` via `build_wells_js.py` (tnc_* fields; build fails if
+any CSV well doesn't match). Displayed for all 9 wells exactly as TNC
+named them — 6 RMS + 3 supplemental (`21N01E28F001M`, `23N01W28M005M`,
+`23N01W31M004M`) — as a bright-green dashed hydrograph line, popup
+line, "TNC eco" pill, and a §5.2 halo toggle.
+
+No polygon geometry touched (`build_polygons_three_zone.py` not re-run;
+`vina_2027_thiessen_three_zone.geojson` / `polygons-data-three-zone.js`
+byte-identical). Workbook threshold columns re-synced via
+`update_workbook_thresholds.py` (Threshold_Source now "Strawman
+Table 3" for the 17). Branch `lml-tnc`; cache-busters bumped to
+`?v=18` (main.js), `?v=21` (readme-data.js), `?v=15` (wells-data.js).
+
+Follow-up (same day, after Tovey field-tested the map): the TNC rings
+originally sized off the individual well's tier, so supplemental
+`23N01W28M005M`'s ring (r=10) drew INSIDE the collapsed nested-pad
+marker it shares with RMS `23N01W28M004M` (r=11) — the map read as
+"7 RMS + 2 supplemental" instead of 6+3. Fix: ring radius now derives
+from the pad's actual rendered marker (nested pads collapse to one
+larger marker), supplemental completions get a DASHED ring vs solid
+for RMS, and every ring carries a permanent short-name label
+(`.tnc-label`, arrowless tooltip; labels flip to the left side for the
+two same-latitude east-neighbor pairs: 28M-pad/27L001M and
+28F001M/27D001M). Legend split into solid/dashed chips. Cache-busters:
+main.js `?v=19`, readme-data.js `?v=22`.
+
+Fourth follow-up (2026-07-08): (a) **ESA GDE scenario overlay** added
+to §5.2 — a "ESA GDE areas" toggle + a 6-scenario dropdown over the
+1,228 GDE polygon centroids from the ESA GDE Technical Study
+(March 2026). Data copied from the sibling `vina-stream-connectivity`
+repo (`data/gde-centroids-data.js` -> `js/gde-centroids-data.js`,
+`const GDE_CENTROIDS`, 1,228 recs, each with 6 `roots_*` likely flags).
+Canvas-rendered (non-interactive) in a dedicated `gdePane` (z-index 420,
+between polygons 400 and wells 450): likely-this-scenario = solid green,
+others = faint grey; bottom-left on-map legend reports scenario + counts.
+The per-scenario likely counts reproduce ESA TM Table 3 exactly
+(464/100/64/38/21/17) — verified in the build. Purpose: show how the
+"likely GDE" footprint depends on the scenario choice, relative to the
+RMS + LML polygons; the green cluster sits in the NW Sacramento River
+corridor over the northern LML polygons. Only the scenario dropdown is
+ported — NOT the connectivity dashboard's color-mode / surface / year /
+shallow-wells / contour controls (Tovey's scope). (b) `.well-label`
+font bumped 10px -> 13.5px (Tovey couldn't read them). Cache-busters:
+main.js `?v=22`, readme-data.js `?v=25`, wells-data.js `?v=16`,
+gde-centroids-data.js `?v=1`.
+
+Fifth follow-up (2026-07-08): §5.3 LML widget gained two readouts that
+operationalize the LML-siting/trigger argument. (a) **GDE persistence
+readout** (`gdePersistenceHtml`): for the selected LML well, nearby
+likely-GDE centroids within 1.5 mi under Spring-90th-pct vs. how many
+persist to fall (`roots_p90_fall`), plus distance to the nearest
+persistent GDE. Makes the case clickable — 32E001M reads "6 spring /
+0 fall, nearest persistent 9.5 mi" (South/Durham, isolated), vs. the 4
+northern/Chico wells within ~3-4 mi of the persistent Sacramento
+corridor core. (b) **Drought split** on the trigger-frequency readout
+(`isDroughtYear` via DROUGHT_PERIODS): shows how many exceedance-years
+were NON-drought (only 20K001M, 2011); zero-cases now read "never —
+including through the 2012-16 and 2020-22 droughts." Both verified in
+preview against the standalone Node analysis (exact match). main.js
+`?v=24`. Context: [[project_gde_tnc_advocacy]].
+
+See also the GDE/TNC advocacy workstream — the reframed "Working
+Technical Notes" (non-record strawman for Christina) and the fallback
+comment letter / talking points live in
+`00 COWORK/Projects/tag agubc/2027 GDE-LML Comments/` (moved there
+2026-07-08), not in any repo.
+
+Third follow-up (2026-07-08): TNC ecological-threshold overlay REMOVED
+at Tovey's request — only the proposed-LML overlay remains. Deleted the
+`tnc_*` fields + CSV loader from `build_wells_js.py`, `data/tnc_
+ecological_thresholds.csv` (git rm; source still under
+`secondary/TNC Thresholds/`), and from `main.js` the `TNC_COLOR`
+constant, `tncLayer`, `buildTncLayer()`, the `#tog-tnc` toggle, the
+green hydrograph line, the popup note, and the `TNC eco` table pill;
+plus the corresponding index.html toggle/legend/CSS and README section.
+The general **"Show well name labels"** toggle was KEPT — it is useful
+independent of TNC (it was Tovey's fix for finding nested pads). Strawman
+Table 3 thresholds, the AGWL Mirror cross-check, and the LML overlay all
+stay. Context: the TNC ecological thresholds became a live advocacy issue
+(Vina GSA GDE debate); AGUBC is commenting to county staff rather than
+featuring TNC's numbers in the dashboard. Cache-busters: main.js `?v=21`,
+wells-data.js `?v=16`, readme-data.js `?v=24`.
+
+Second follow-up (2026-07-07): labeling only the 9 TNC wells read as
+inconsistent, so the ring labels were replaced by a general §5.2
+**"Show well name labels"** toggle covering every map pin
+(`buildLabelsLayer()` in main.js, `.well-label` CSS, blue text for
+RMS-bearing pins, gray for supplemental-only). One label per pin:
+single wells get the short SWN via `shortWellName()` ("09E001M");
+nested pads get a common-prefix pad label with completion count via
+`siteLabelText()` ("28M ×4", "31M ×4", "28J ×3", "CWSCH ×7"). Labels
+anchor to invisible zero-radius circleMarkers so hit-testing is
+unaffected; default off. The underlying source of Tovey's "7 RMS with
+thresholds" reading: the 28M pin renders as ONE RMS-style marker for a
+4-completion nest (72 ft to 1,044 ft deep); TNC's threshold there is
+on the shallow supplemental completion 28M005M (72 ft, screen
+30-50 ft), not the RMS completion 28M004M (207 ft, screens
+120-130/155-165 ft) — i.e., TNC targeted the water-table screen, which
+the RMS well does not measure. Cache-busters: main.js `?v=20`,
+readme-data.js `?v=23`.
+
 ---
 
 ## Key methodological decisions

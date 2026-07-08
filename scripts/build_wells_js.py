@@ -2,10 +2,12 @@
 
 Joins:
     - data/wells_resolved.json   (every xlsx row, with DWR site_code)
-    - data/thresholds.json       (MT/MO/IM-2027 for 30 of the 35 2027 RMS
-                                  completions: 12 "2022 GSP" carry-overs +
-                                  17 "AGWL Mirror" baselines computed by
-                                  scripts/compute_thresholds.py; 5 supplemental
+    - data/thresholds.json       (MT/MO/IM-2027 for the 29 2027 RMS wells:
+                                  12 "2022 GSP" carry-overs + 17 county
+                                  "Strawman Table 3" values with the
+                                  dashboard's AGWL Mirror cross-check riding
+                                  along, computed by
+                                  scripts/compute_thresholds.py; 6 supplemental
                                   Chico nested completions are unthresholded
                                   per 2022 GSP convention)
 
@@ -17,8 +19,12 @@ Output schema (one element per well in the xlsx):
     butte_co_reasoning,
     bbgm_loc_id, bbgm_aqu_layer, bbgm_calib_resid_ft, bbgm_source,
     mt_ft, mo_ft, im_2027_ft,
-    threshold_source     ("2022 GSP" | "AGWL Mirror" | null for non-RMS)
+    threshold_source     ("2022 GSP" | "Strawman Table 3" | null for non-RMS)
     threshold_low_data   (true if <3 drought-window readings)
+    mirror_mt_ft, mirror_mo_ft, mirror_im_2027_ft
+                         (dashboard's independent AGWL Mirror cross-check;
+                          null for carryovers and non-RMS)
+    table3_divergence    (note string when county Table 3 != Mirror, else null)
 """
 import json
 from pathlib import Path
@@ -83,6 +89,12 @@ def main():
             "im_2027_ft": thresh.get("im_2027_ft"),
             "threshold_source": thresh.get("source") if thresh else None,
             "threshold_low_data": thresh.get("low_spring_data", False) if thresh else False,
+            # Dashboard's independent AGWL Mirror cross-check of the county
+            # Table 3 values (null for 2022 GSP carryovers and non-RMS wells).
+            "mirror_mt_ft": thresh.get("mirror_mt_ft"),
+            "mirror_mo_ft": thresh.get("mirror_mo_ft"),
+            "mirror_im_2027_ft": thresh.get("mirror_im_2027_ft"),
+            "table3_divergence": thresh.get("table3_divergence"),
         }
         out.append(rec)
 
