@@ -699,6 +699,19 @@ byte-identical). Workbook threshold columns re-synced via
 Table 3" for the 17). Branch `lml-tnc`; cache-busters bumped to
 `?v=18` (main.js), `?v=21` (readme-data.js), `?v=15` (wells-data.js).
 
+Follow-up (same day, after Tovey field-tested the map): the TNC rings
+originally sized off the individual well's tier, so supplemental
+`23N01W28M005M`'s ring (r=10) drew INSIDE the collapsed nested-pad
+marker it shares with RMS `23N01W28M004M` (r=11) — the map read as
+"7 RMS + 2 supplemental" instead of 6+3. Fix: ring radius now derives
+from the pad's actual rendered marker (nested pads collapse to one
+larger marker), supplemental completions get a DASHED ring vs solid
+for RMS, and every ring carries a permanent short-name label
+(`.tnc-label`, arrowless tooltip; labels flip to the left side for the
+two same-latitude east-neighbor pairs: 28M-pad/27L001M and
+28F001M/27D001M). Legend split into solid/dashed chips. Cache-busters:
+main.js `?v=19`, readme-data.js `?v=22`.
+
 ---
 
 ## Key methodological decisions
