@@ -992,28 +992,81 @@
     $("#lml-offset-slider").value = lmlOffsetFt;
     $("#lml-offset-display").textContent = `${lmlOffsetFt} ft  (LML = ${lml.toFixed(0)} ft msl)`;
     $("#lml-trigger-stats").innerHTML = lmlTriggerStatsHtml(w, lml);
+    $("#lml-gde-stats").innerHTML = gdePersistenceHtml(w);
+  }
+
+  // True if a "YYYY" year string falls inside one of the DROUGHT_PERIODS. Used
+  // to split LML trigger frequency into drought vs non-drought years — the
+  // non-drought exceedances are the ones that would fire a management response
+  // on something other than weather.
+  function isDroughtYear(yStr) {
+    const y = parseInt(yStr, 10);
+    return DROUGHT_PERIODS.some(([a, b]) =>
+      y >= parseInt(a.slice(0, 4), 10) && y <= parseInt(b.slice(0, 4), 10));
   }
 
   // Historical trigger frequency: of the LML well's QA-Good GWE record, how
   // many readings — and how many distinct years — fall below the candidate
-  // LML at the current slider offset. Answers "how often would this trigger
-  // have fired historically?"
+  // LML at the current slider offset, split by drought vs non-drought year.
+  // Answers "how often would this trigger have fired historically, and would
+  // it have fired on something other than a drought dip?"
   function lmlTriggerStatsHtml(w, lml) {
     const good = getMeas(w).filter((r) =>
       r.gwe != null && r.qa && r.qa.toLowerCase().includes("good"));
     if (!good.length) return `<span style="color:#888;">no QA-Good record to evaluate</span>`;
     const below = good.filter((r) => r.gwe < lml);
     const years = new Set(good.map((r) => r.d.slice(0, 4)));
-    const yearsBelow = new Set(below.map((r) => r.d.slice(0, 4)));
+    const yearsBelow = [...new Set(below.map((r) => r.d.slice(0, 4)))];
+    const nonDroughtYears = yearsBelow.filter((y) => !isDroughtYear(y));
     const pctVal = (100 * below.length) / good.length;
     const pct = pctVal.toFixed(pctVal > 0 && pctVal < 10 ? 1 : 0);
     const latest = good[good.length - 1];
     const latestState = latest.gwe < lml
       ? `<b style="color:#b45309;">below</b>`
       : `<b style="color:#1b5e20;">above</b>`;
+    const split = yearsBelow.length
+      ? ` — <b>${nonDroughtYears.length}</b> of those ${yearsBelow.length === 1 ? "was a non-drought year" : "were non-drought years"}${nonDroughtYears.length ? ` (${nonDroughtYears.sort().join(", ")})` : ""}`
+      : ` (never — including through the 2012&ndash;16 and 2020&ndash;22 droughts)`;
     return `Historically <b>${below.length}</b> of ${good.length.toLocaleString()} QA-Good readings ` +
-      `(<b>${pct}%</b>) fell below this LML, in <b>${yearsBelow.size}</b> of ${years.size} years with data. ` +
+      `(<b>${pct}%</b>) fell below this LML, in <b>${yearsBelow.length}</b> of ${years.size} years with data${split}. ` +
       `Most recent QA-Good reading (${latest.d}): ${latest.gwe.toFixed(1)} ft msl — ${latestState} the LML.`;
+  }
+
+  // Great-circle distance in miles between two lat/lon points.
+  function haversineMi(lat1, lon1, lat2, lon2) {
+    const R = 3958.8, toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  // GDE persistence readout for a proposed-LML well: how many ESA "likely GDE"
+  // centroids sit near the well under the inclusive Spring-90th-pct scenario
+  // vs. how many of those persist into fall (roots_p90_fall), and the distance
+  // to the nearest polygon that persists past the spring peak. Makes the LML
+  // siting case visible: wells near the persistent Sacramento-corridor core vs.
+  // wells (e.g. 32E001M) whose nearby GDEs exist only at the spring peak.
+  const GDE_NEAR_MI = 1.5;
+  function gdePersistenceHtml(w) {
+    if (typeof GDE_CENTROIDS === "undefined" || w.latitude == null) return "";
+    let springNear = 0, fallNear = 0, nearestPersistMi = Infinity;
+    for (const c of GDE_CENTROIDS) {
+      if (c.lat == null || c.lon == null) continue;
+      const d = haversineMi(w.latitude, w.longitude, c.lat, c.lon);
+      if (c.roots_p90_fall === 1 && d < nearestPersistMi) nearestPersistMi = d;
+      if (d > GDE_NEAR_MI) continue;
+      if (c.roots_p90_spring === 1) springNear++;
+      if (c.roots_p90_fall === 1) fallNear++;
+    }
+    const nearest = nearestPersistMi === Infinity ? "—" : `${nearestPersistMi.toFixed(1)} mi`;
+    const persistNote = fallNear === 0
+      ? ` <span style="color:#b45309;">— none persist into fall/dry scenarios within ${GDE_NEAR_MI} mi</span>`
+      : "";
+    return `<b>Nearby likely GDEs (&le;${GDE_NEAR_MI} mi):</b> ` +
+      `Spring 90th pct <b>${springNear}</b> &middot; persist to fall <b>${fallNear}</b>${persistNote}. ` +
+      `Nearest GDE that persists past the spring peak: <b>${nearest}</b>. ` +
+      `<span style="color:#607d8b;font-size:11px;">(ESA GDE Technical Study centroids; use §5.2 "ESA GDE areas" + scenario dropdown to view the footprints.)</span>`;
   }
 
   function renderHydrograph(poly, insideWells) {
