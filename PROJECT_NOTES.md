@@ -732,6 +732,21 @@ font bumped 10px -> 13.5px (Tovey couldn't read them). Cache-busters:
 main.js `?v=22`, readme-data.js `?v=25`, wells-data.js `?v=16`,
 gde-centroids-data.js `?v=1`.
 
+Fifth follow-up (2026-07-08): §5.3 LML widget gained two readouts that
+operationalize the LML-siting/trigger argument. (a) **GDE persistence
+readout** (`gdePersistenceHtml`): for the selected LML well, nearby
+likely-GDE centroids within 1.5 mi under Spring-90th-pct vs. how many
+persist to fall (`roots_p90_fall`), plus distance to the nearest
+persistent GDE. Makes the case clickable — 32E001M reads "6 spring /
+0 fall, nearest persistent 9.5 mi" (South/Durham, isolated), vs. the 4
+northern/Chico wells within ~3-4 mi of the persistent Sacramento
+corridor core. (b) **Drought split** on the trigger-frequency readout
+(`isDroughtYear` via DROUGHT_PERIODS): shows how many exceedance-years
+were NON-drought (only 20K001M, 2011); zero-cases now read "never —
+including through the 2012-16 and 2020-22 droughts." Both verified in
+preview against the standalone Node analysis (exact match). main.js
+`?v=24`. Context: [[project_gde_tnc_advocacy]].
+
 See also the GDE/TNC advocacy workstream — the reframed "Working
 Technical Notes" (non-record strawman for Christina) live in the sibling
 `vina-stream-connectivity` repo, not here.
