@@ -2,12 +2,24 @@
 
 Joins:
     - data/wells_resolved.json   (every xlsx row, with DWR site_code)
-    - data/thresholds.json       (MT/MO/IM-2027 for 30 of the 35 2027 RMS
-                                  completions: 12 "2022 GSP" carry-overs +
-                                  17 "AGWL Mirror" baselines computed by
-                                  scripts/compute_thresholds.py; 5 supplemental
+    - data/thresholds.json       (MT/MO/IM-2027 for the 29 2027 RMS wells:
+                                  12 "2022 GSP" carry-overs + 17 county
+                                  "Strawman Table 3" values with the
+                                  dashboard's AGWL Mirror cross-check riding
+                                  along, computed by
+                                  scripts/compute_thresholds.py; 6 supplemental
                                   Chico nested completions are unthresholded
                                   per 2022 GSP convention)
+    - data/tnc_ecological_thresholds.csv
+                                 (TNC "Ecological Threshold Recommendations -
+                                  Vina Subbasin", 9 wells. UNITS NOTE: the
+                                  CSV column headers say "(ft bgs)" but the
+                                  values are groundwater ELEVATIONS in ft msl
+                                  — TNC's per-well hydrograph PDFs plot the
+                                  same numbers on a "Groundwater Elevation
+                                  (ft)" axis, and read as depths they would
+                                  be physically impossible, e.g. 147 ft bgs
+                                  in the 110-ft-deep well 23N01W09E001M.)
 
 Output schema (one element per well in the xlsx):
     well_name, swn, site_code, mgmt_area_full, mgmt_area, well_depth,
@@ -17,15 +29,24 @@ Output schema (one element per well in the xlsx):
     butte_co_reasoning,
     bbgm_loc_id, bbgm_aqu_layer, bbgm_calib_resid_ft, bbgm_source,
     mt_ft, mo_ft, im_2027_ft,
-    threshold_source     ("2022 GSP" | "AGWL Mirror" | null for non-RMS)
+    threshold_source     ("2022 GSP" | "Strawman Table 3" | null for non-RMS)
     threshold_low_data   (true if <3 drought-window readings)
+    mirror_mt_ft, mirror_mo_ft, mirror_im_2027_ft
+                         (dashboard's independent AGWL Mirror cross-check;
+                          null for carryovers and non-RMS)
+    table3_divergence    (note string when county Table 3 != Mirror, else null)
+    tnc_eco_threshold_ft, tnc_mean_summer_gwe_ft, tnc_sd_summer_ft,
+    tnc_rpe_ft           (TNC recommendation fields, ft msl; null for the
+                          70 wells TNC did not evaluate)
 """
+import csv
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WELLS_JSON = ROOT / "data" / "wells_resolved.json"
 THRESH_JSON = ROOT / "data" / "thresholds.json"
+TNC_CSV = ROOT / "data" / "tnc_ecological_thresholds.csv"
 OUT = ROOT / "js" / "wells-data.js"
 
 MA_SHORT = {
@@ -35,9 +56,33 @@ MA_SHORT = {
 }
 
 
+def load_tnc() -> dict:
+    """TNC ecological threshold recommendations, keyed by well SWN.
+
+    Values in the CSV are groundwater elevations in ft msl despite the
+    "(ft bgs)" column headers (see module docstring). The recommended
+    threshold works out to roughly (mean summer GWE - 1.3 sd), i.e. about
+    the 10th percentile of historically observed summer levels.
+    """
+    tnc = {}
+    with TNC_CSV.open(newline="") as f:
+        for row in csv.DictReader(f):
+            name = (row.get("WELL_NAME") or "").strip()
+            if not name:
+                continue
+            tnc[name] = {
+                "tnc_rpe_ft": float(row["RPE"]),
+                "tnc_mean_summer_gwe_ft": float(row["mean_gwe_summer (ft bgs)"]),
+                "tnc_sd_summer_ft": float(row["sd_gwe_summer (ft bgs)"]),
+                "tnc_eco_threshold_ft": float(row["recommended_ecological_threshold (ft bgs)"]),
+            }
+    return tnc
+
+
 def main():
     wells = json.loads(WELLS_JSON.read_text())
     thresholds = {t["swn"]: t for t in json.loads(THRESH_JSON.read_text())}
+    tnc = load_tnc()
 
     out = []
     for w in wells:
@@ -83,7 +128,20 @@ def main():
             "im_2027_ft": thresh.get("im_2027_ft"),
             "threshold_source": thresh.get("source") if thresh else None,
             "threshold_low_data": thresh.get("low_spring_data", False) if thresh else False,
+            # Dashboard's independent AGWL Mirror cross-check of the county
+            # Table 3 values (null for 2022 GSP carryovers and non-RMS wells).
+            "mirror_mt_ft": thresh.get("mirror_mt_ft"),
+            "mirror_mo_ft": thresh.get("mirror_mo_ft"),
+            "mirror_im_2027_ft": thresh.get("mirror_im_2027_ft"),
+            "table3_divergence": thresh.get("table3_divergence"),
         }
+        # TNC ecological threshold recommendation fields (9 wells).
+        rec.update(tnc.get(name, {
+            "tnc_rpe_ft": None,
+            "tnc_mean_summer_gwe_ft": None,
+            "tnc_sd_summer_ft": None,
+            "tnc_eco_threshold_ft": None,
+        }))
         out.append(rec)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -95,11 +153,16 @@ def main():
     n_2027 = sum(1 for r in out if r["is_2027_gwl_rms"])
     n_2022 = sum(1 for r in out if r["is_2022_gwl_rms"])
     n_thresh = sum(1 for r in out if r["mt_ft"] is not None)
+    n_tnc = sum(1 for r in out if r["tnc_eco_threshold_ft"] is not None)
+    unmatched_tnc = sorted(set(tnc) - {r["swn"] for r in out if r["tnc_eco_threshold_ft"] is not None})
+    if unmatched_tnc:
+        raise SystemExit(f"TNC wells not found in the network: {unmatched_tnc}")
     print(f"Wrote {OUT}")
     print(f"  total wells: {len(out)}")
     print(f"  2022 RMS:    {n_2022}")
     print(f"  2027 RMS:    {n_2027}")
     print(f"  w/ MT/MO:    {n_thresh}")
+    print(f"  w/ TNC eco threshold: {n_tnc} (all {len(tnc)} CSV wells matched)")
 
 
 if __name__ == "__main__":

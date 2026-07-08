@@ -116,6 +116,19 @@
       font-size: 13px;
     }
     .mt-sensitivity-controls input[type="range"] { vertical-align: middle; }
+    /* Proposed-LML widget (strawman 6/18/2026) — only visible when the
+       selected polygon is one of the 5 the strawman designates for a
+       Local Management Level. */
+    .lml-controls {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 8px 18px; margin: 6px 0 14px;
+      padding: 10px 12px;
+      background: #e0f2f1;
+      border-left: 4px solid #00838f;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .lml-controls input[type="range"] { vertical-align: middle; }
 
     #sensitivity-widget {
       margin: 18px 0 16px;
@@ -186,6 +199,8 @@
     .pill-nested   { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
     .pill-thr-gsp     { background: #e3f2fd; color: #1e40af; border: 1px solid #b3d6f5; }
     .pill-thr-mirror  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .pill-lml      { background: #e0f2f1; color: #00695c; border: 1px solid #80cbc4; }
+    .pill-tnc      { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
     .reasoning-row td {
       background: #fafbfd; font-size: 12px; color: #555;
       padding: 4px 10px 10px 36px;
@@ -322,6 +337,8 @@
       <label><input type="checkbox" id="tog-rms-2027" checked> Show 2027 RMS wells</label>
       <label><input type="checkbox" id="tog-supp" checked> Show supplemental wells</label>
       <label><input type="checkbox" id="tog-domestic"> Show domestic wells</label>
+      <label><input type="checkbox" id="tog-lml"> Proposed LML polygons (strawman)</label>
+      <label><input type="checkbox" id="tog-tnc"> TNC eco-threshold wells</label>
     </div>
 
     <div id="map"></div>
@@ -334,6 +351,8 @@
       <span class="legend-chip"><span class="legend-box" style="background: rgba(31,78,224,0.18); border-color: var(--north);"></span>01-Vina-North polygon</span>
       <span class="legend-chip"><span class="legend-box" style="background: rgba(224,123,31,0.18); border-color: var(--chico);"></span>02-Vina-Chico polygon</span>
       <span class="legend-chip"><span class="legend-box" style="background: rgba(44,160,44,0.18); border-color: var(--south);"></span>03-Vina-South polygon</span>
+      <span class="legend-chip"><span class="legend-box" style="background: rgba(0,131,143,0.12); border: 2px dashed #00838f;"></span>Proposed LML polygon (strawman 6/18/2026)</span>
+      <span class="legend-chip"><span class="legend-dot" style="background: transparent; border: 2.5px solid #00c853; width: 10px; height: 10px;"></span>TNC eco-threshold recommendation (9 wells)</span>
     </div>
   </section>
 
@@ -343,8 +362,14 @@
     <div class="lede">
       For the selected polygon, this view plots groundwater elevation traces
       for every well (RMS or supplemental) that falls inside the polygon
-      footprint. MT / MO / IM-2027 threshold lines are shown where 2022 GSP
-      values carried forward.
+      footprint. MT / MO / IM-2027 threshold lines are shown for every 2027
+      RMS well — dashed where the 2022 GSP values carried forward, dotted
+      where the county's proposed Strawman Table 3 values (6/18/2026 memo)
+      apply. The 5 proposed LML polygons additionally get a
+      <span style="color:#00838f; font-weight:600;">proposed LML line</span>
+      driven by the slider below, and the 9 wells TNC evaluated get a
+      <span style="color:#1b5e20; font-weight:600;">TNC eco-threshold
+      line</span>.
     </div>
 
     <div class="polygon-picker">
@@ -383,6 +408,27 @@
       </label>
     </div>
 
+    <!-- Proposed-LML widget (strawman 6/18/2026). Hidden unless the selected
+         polygon is one of the 5 the strawman designates for a non-regulatory
+         Local Management Level. Slider explores LML = MO minus 0-30 ft in
+         5-ft steps (memo's discussion starting point: 10-20 ft below MO). -->
+    <div class="lml-controls" id="lml-controls" style="display:none;">
+      <label style="display:flex; align-items:center; gap:8px;">
+        <span style="font-weight:600; color:#00695c;">Proposed LML (strawman):</span>
+        <span>MO&nbsp;&minus;</span>
+        <input type="range" id="lml-offset-slider" min="0" max="30" step="5" value="15"
+               style="width:200px;">
+        <span id="lml-offset-display" style="font-weight:600; min-width:150px;">15 ft</span>
+      </label>
+      <span id="lml-trigger-stats" style="font-size:12.5px; color:#37474f;"></span>
+      <span style="flex-basis:100%; font-size:11px; color:#607d8b;">
+        Non-regulatory management trigger proposed for GDE-sensitive areas in the
+        GWL Strawman (Vina GSA memo, 6/18/2026) — a level below the MO that would
+        prompt investigation and adaptive management, not an undesirable-result
+        criterion. Nothing here is adopted.
+      </span>
+    </div>
+
     <div id="hydro"></div>
     <div class="map-legend" style="margin-top:6px;">
       <span class="legend-chip"><span class="drought-strip"></span> Drought period (1991-93, 2012-15, 2020-22)</span>
@@ -390,6 +436,8 @@
       <span class="legend-chip"><span style="border-top: 2px dashed #2a7; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> MO (Measurable Objective)</span>
       <span class="legend-chip"><span style="border-top: 2px dotted #6a3aa1; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> IM-2027 (Interim Milestone)</span>
       <span class="legend-chip"><span style="border-top: 2px dashed #ff8c00; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> MT raised (slider)</span>
+      <span class="legend-chip"><span style="border-top: 3px dashed #00838f; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> Proposed LML (strawman slider)</span>
+      <span class="legend-chip"><span style="border-top: 2px dashed #00c853; width: 22px; display:inline-block; height: 0; margin-bottom: 5px;"></span> TNC eco threshold</span>
     </div>
 
     <!-- MT sensitivity widget: dry-domestic-well counts at MT and at MT raised
@@ -457,13 +505,13 @@
   </p>
 </div>
 
-<script src="js/wells-data.js?v=14"></script>
+<script src="js/wells-data.js?v=15"></script>
 <script src="js/polygons-data-three-zone.js?v=12"></script>
 <script src="js/measurements-data.js?v=3"></script>
 <script src="js/basin-boundary.js?v=3"></script>
 <script src="js/domestic-wells-data.js?v=13"></script>
-<script src="js/readme-data.js?v=20"></script>
-<script src="js/main.js?v=17"></script>
+<script src="js/readme-data.js?v=21"></script>
+<script src="js/main.js?v=18"></script>
 <script>
   // Render the bundled README markdown via marked.js. README_MD comes from
   // js/readme-data.js (regenerated by scripts/build_readme_js.py whenever

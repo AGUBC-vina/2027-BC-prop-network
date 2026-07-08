@@ -645,6 +645,60 @@ Branch `chico-3-new-rms`; cache-buster bumped to `?v=17` (main.js),
 `?v=20` (readme-data.js), `?v=14` (wells-data.js), `?v=12`
 (polygons-data-three-zone.js).
 
+### 17. 2026-07-07 — Strawman Table 3 display + proposed-LML overlay + TNC eco thresholds
+
+Inputs: the county's GWL Strawman memo (Vina GSA, 6/18/2026 — "GWL
+Strawman Final_6.18.2026", Attachment A) and TNC's "Ecological
+Threshold Recommendations – Vina Subbasin" CSV (9 wells + per-well
+hydrograph PDFs), both under `secondary/` (gitignored); the TNC CSV is
+copied into the repo at `data/tnc_ecological_thresholds.csv`.
+
+**Threshold display switched to county Table 3 (17 non-carryover
+wells).** `compute_thresholds.py` gains a `COUNTY_TABLE3` constant (all
+29 wells transcribed from the memo) applied as the displayed MT/MO/IM
+with `source: "Strawman Table 3"`; the script's own AGWL Mirror
+derivation is retained per-well in `mirror_mt_ft/mirror_mo_ft/
+mirror_im_2027_ft`. Cross-check result: **Mirror reproduces Table 3
+exactly for 27 of 29 wells.** Divergences auto-flagged in a
+`table3_divergence` note surfaced in popups and a "⚠ T3 ≠ Mirror"
+pill: `21N01E10B003M` (county 10/64/67 vs Mirror 30/92/94; the county
+row is also internally inconsistent — printed ASGWL 102 minus South
+offsets 92/30/28 implies MO 72/IM 74, not the published 64/67) and
+`21N02E32E001M` (county 30/91/93 vs Mirror 25/87/89; county ASGWL 122
+vs dashboard Feb–April AGWL 117.6). For the 12 carryovers the script
+asserts Table 3 == 2022 GSP values so upstream changes fail the build.
+
+**Proposed-LML overlay (strawman).** The 5 designated wells
+(`23N01W09E001M`, `23N01W27L001M`, `23N01W36P001M`, `22N01E20K001M`,
+`21N02E32E001M`) live in a `LML_SWNS` constant in `main.js`. §5.2 gets
+a "Proposed LML polygons (strawman)" toggle (dark-cyan dashed overlay,
+non-interactive so clicks still select the base cell). §5.3 gets a
+teal LML widget — visible only when one of the 5 polygons is selected —
+with a MO − 0…30 ft slider (5-ft steps, default 15 = midpoint of the
+memo's 10–20 ft starting range), a dash-dot LML line on the
+hydrograph, and a historical trigger-frequency readout (share of
+QA-Good readings, and distinct years, below the candidate LML).
+Scope decision (Tovey): LML applies ONLY to the 5 designated polygons,
+mirroring the memo — no basin-wide exploration mode.
+
+**TNC ecological thresholds.** Units gotcha: the CSV headers say
+"(ft bgs)" but values are groundwater ELEVATIONS in ft msl — confirmed
+against TNC's own hydrograph PDFs (elevation axis) and by physical
+impossibility (147 "ft bgs" in a 110-ft well). Threshold ≈ mean summer
+GWE − 1.3 sd (~10th percentile of summer record). Joined into
+`wells-data.js` via `build_wells_js.py` (tnc_* fields; build fails if
+any CSV well doesn't match). Displayed for all 9 wells exactly as TNC
+named them — 6 RMS + 3 supplemental (`21N01E28F001M`, `23N01W28M005M`,
+`23N01W31M004M`) — as a bright-green dashed hydrograph line, popup
+line, "TNC eco" pill, and a §5.2 halo toggle.
+
+No polygon geometry touched (`build_polygons_three_zone.py` not re-run;
+`vina_2027_thiessen_three_zone.geojson` / `polygons-data-three-zone.js`
+byte-identical). Workbook threshold columns re-synced via
+`update_workbook_thresholds.py` (Threshold_Source now "Strawman
+Table 3" for the 17). Branch `lml-tnc`; cache-busters bumped to
+`?v=18` (main.js), `?v=21` (readme-data.js), `?v=15` (wells-data.js).
+
 ---
 
 ## Key methodological decisions

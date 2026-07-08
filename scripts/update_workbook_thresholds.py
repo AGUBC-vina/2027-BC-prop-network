@@ -7,7 +7,7 @@ new columns after the existing data:
     W: MT_ft
     X: MO_ft
     Y: IM_2027_ft
-    Z: Threshold_Source     ("2022 GSP" | "AGWL Mirror" | blank for non-RMS)
+    Z: Threshold_Source     ("2022 GSP" | "Strawman Table 3" | blank for non-RMS)
 
 Values are populated for the 30 thresholded 2027 RMS completions (out of
 35 flagged is_2027_gwl_rms); 5 supplemental Chico nested completions and
@@ -85,7 +85,7 @@ def main():
     wb.save(XLSX)
     print(f"Updated {XLSX}")
     print(f"  Wrote {n_adopted} '2022 GSP' rows (adopted carry-overs)")
-    print(f"  Wrote {n_mirror} 'AGWL Mirror' rows (computed baselines)")
+    print(f"  Wrote {n_mirror} 'Strawman Table 3' rows (county-published proposed values)")
     print(f"  Total: {n_adopted + n_mirror} threshold rows populated")
 
 

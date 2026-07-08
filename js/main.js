@@ -30,6 +30,27 @@
     ["2020-01-01", "2022-12-31"],
   ];
 
+  /* -------------- strawman overlays (Vina GSA memo, 2026-06-18) ---------- */
+  // The 5 RMS wells the GWL Strawman proposes for non-regulatory Local
+  // Management Levels (LMLs) in GDE-sensitive areas — the shallow RMS wells
+  // identified as representing regional shallow groundwater conditions.
+  // LML = MO minus an offset; the memo's discussion starting point is
+  // 10-20 ft below MO, and the §5.3 slider explores 0-30 ft in 5-ft steps.
+  // Reaching an LML would trigger investigation and adaptive management,
+  // NOT an undesirable result. Nothing here is adopted.
+  const LML_SWNS = [
+    "23N01W09E001M",  // North — Sacramento River corridor
+    "23N01W27L001M",  // North
+    "23N01W36P001M",  // North
+    "22N01E20K001M",  // North network (well physically in Chico mgmt area)
+    "21N02E32E001M",  // South — Durham area
+  ];
+  const LML_COLOR = "#00838f";   // dark cyan — LML line + polygon highlight
+  const TNC_COLOR = "#00c853";   // bright green — matches TNC's own charts
+  // Current LML slider offset (ft below MO). Default 15 = midpoint of the
+  // memo's suggested 10-20 ft starting range.
+  let lmlOffsetFt = 15;
+
   /* -------------- helpers ------------------------------------------------ */
   const $ = (sel) => document.querySelector(sel);
   function fmt(v, d = 2) {
@@ -193,6 +214,7 @@
 
   /* -------------- 5.2 Leaflet map --------------------------------------- */
   let map, polygonLayer, basinLayer, rms2027Layer, suppLayer, domesticLayer;
+  let lmlLayer, tncLayer;
 
   /* -------------- MT sensitivity (domestic wells) ---------------------- */
   // Slider value (0–30 ft, the amount by which MT is hypothetically raised
@@ -373,6 +395,21 @@
     const inheritNote = w.carryover_from
       ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> MT/MO/IM inherited from <code>${w.carryover_from}</code>, the 2022 GSP RMS at this same lat/lng (different completion depth).</div>`
       : "";
+    // Proposed-LML note for the 5 strawman-designated wells. The value
+    // follows the §5.3 slider offset — popup content is a function, so it
+    // recomputes on every open.
+    const lmlNote = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn) && w.mo_ft != null)
+      ? `<div style="margin-top:4px;color:${LML_COLOR};font-size:11.5px;"><b>Proposed LML polygon (strawman 6/18/2026):</b> LML at MO &minus; ${lmlOffsetFt} ft = ${(w.mo_ft - lmlOffsetFt).toFixed(0)} ft msl. Non-regulatory trigger for GDE-sensitive areas — explore the offset with the §5.3 slider.</div>`
+      : "";
+    // TNC recommendation line for the 9 wells TNC evaluated (values are
+    // groundwater elevations in ft msl; see README units note).
+    const tncNote = (w.tnc_eco_threshold_ft != null)
+      ? `<div style="margin-top:4px;color:#1b5e20;font-size:11.5px;"><b>TNC recommended ecological threshold:</b> ${w.tnc_eco_threshold_ft.toFixed(1)} ft msl <span style="color:#777;">(mean summer GWE ${w.tnc_mean_summer_gwe_ft.toFixed(1)} ft msl, sd ${w.tnc_sd_summer_ft.toFixed(1)} ft)</span></div>`
+      : "";
+    // County-Table-3 vs dashboard-Mirror cross-check flag (2 wells).
+    const divergenceNote = w.table3_divergence
+      ? `<div style="margin-top:6px;padding:5px 8px;background:#fff8e1;border-left:3px solid #f59e0b;font-size:11px;color:#7a5c00;line-height:1.4;"><b>&#9888; Threshold cross-check:</b> ${w.table3_divergence}</div>`
+      : "";
     // Domestic-well dry counts at this RMS well's polygon. Two lines,
     // both INDEPENDENT of the sensitivity slider (the slider drives the
     // hydrograph + sensitivity table, not the popup):
@@ -418,6 +455,9 @@
         <div><b>Role:</b> ${w.is_2027_gwl_rms ? "2027 Proposed RMS" : "Supplemental"}${w.is_2022_gwl_rms ? " · was 2022 RMS" : ""}</div>
         ${chicoNote}
         ${inheritNote}
+        ${lmlNote}
+        ${tncNote}
+        ${divergenceNote}
         ${wseLine}
         ${recordLine}
         ${nestedLine}
@@ -619,6 +659,11 @@
     domesticLayer = buildDomesticLayer();
     // Not added to map by default; toggled via #tog-domestic below.
 
+    // Strawman overlays — proposed LML polygons + TNC eco-threshold wells.
+    // Both default hidden; toggled via #tog-lml / #tog-tnc below.
+    lmlLayer = buildLmlLayer();
+    tncLayer = buildTncLayer();
+
     // Fit to polygons
     const allBounds = L.featureGroup(Object.values(polygonRefs).map((r) => r.lp)).getBounds();
     map.fitBounds(allBounds, { padding: [20, 20] });
@@ -642,7 +687,49 @@
     $("#tog-domestic").addEventListener("change", (e) => {
       if (e.target.checked) domesticLayer.addTo(map); else map.removeLayer(domesticLayer);
     });
+    $("#tog-lml").addEventListener("change", (e) => {
+      if (e.target.checked) lmlLayer.addTo(map); else map.removeLayer(lmlLayer);
+    });
+    $("#tog-tnc").addEventListener("change", (e) => {
+      if (e.target.checked) tncLayer.addTo(map); else map.removeLayer(tncLayer);
+    });
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
+  }
+
+  // Overlay outlining the 5 polygons the strawman proposes for Local
+  // Management Levels. Non-interactive so clicks fall through to the base
+  // polygon (selection keeps working); drawn in polygonsPane, added after
+  // the base cells so it renders above them.
+  function buildLmlLayer() {
+    const layer = L.layerGroup();
+    RMS_POLYGONS.forEach((poly) => {
+      if (!LML_SWNS.includes(poly.rms_well_swn)) return;
+      layer.addLayer(L.polygon(poly.rings, {
+        pane: "polygonsPane",
+        color: LML_COLOR, weight: 3.5, dashArray: "8,5", opacity: 0.95,
+        fill: true, fillColor: LML_COLOR, fillOpacity: 0.10,
+        interactive: false,
+      }));
+    });
+    return layer;
+  }
+
+  // Green halo rings around the 9 wells with TNC ecological-threshold
+  // recommendations (6 of them 2027 RMS, 3 supplemental). Non-interactive;
+  // the well's own popup carries the recommended value.
+  function buildTncLayer() {
+    const layer = L.layerGroup();
+    WELLS.forEach((w) => {
+      if (w.tnc_eco_threshold_ft == null) return;
+      if (w.latitude == null || w.longitude == null) return;
+      layer.addLayer(L.circleMarker([w.latitude, w.longitude], {
+        pane: "wellsPane",
+        radius: (w.is_2027_gwl_rms ? 9 : 5) + 5,
+        color: TNC_COLOR, weight: 3, opacity: 0.95,
+        fill: false, interactive: false,
+      }));
+    });
+    return layer;
   }
 
   // Build the domestic-wells overlay layer. Canvas-rendered for performance
@@ -731,7 +818,10 @@
     $("#poly-header").style.display = "block";
     $("#poly-header-title").textContent = headerTitle;
     $("#poly-header-meta").textContent = `${wellsInside.length} well${wellsInside.length === 1 ? "" : "s"} in zone · ${poly.area_acres.toLocaleString()} acres`;
-    $("#poly-header-smc").innerHTML = `<strong>2027 GWL RMS well${rmsList.includes(",") ? "s" : ""}:</strong> ${rmsList}`;
+    const lmlCallout = (!poly.is_aggregate && LML_SWNS.includes(poly.rms_well_swn))
+      ? ` · <span style="color:${LML_COLOR}; font-weight:600;">Proposed LML polygon (strawman 6/18/2026)</span>`
+      : "";
+    $("#poly-header-smc").innerHTML = `<strong>2027 GWL RMS well${rmsList.includes(",") ? "s" : ""}:</strong> ${rmsList}${lmlCallout}`;
 
     // Visibility init: all wells ON by default
     const visibility = {};
@@ -752,6 +842,52 @@
     renderWellDetailTable();
     populateRMSPicker(poly);
     renderSensitivityTable();
+    updateLmlControls();
+  }
+
+  /* -------------- §5.3 proposed-LML widget (strawman 6/18/2026) --------- */
+  // The selected polygon's LML well, if the polygon is one of the 5 the
+  // strawman designates. All 5 are single-seed Voronoi cells, so
+  // rms_well_swn IS the well; the Chico aggregate is not an LML polygon.
+  function selectedLmlWell() {
+    if (!currentSelection || !currentSelection.poly) return null;
+    const poly = currentSelection.poly;
+    if (poly.is_aggregate || !LML_SWNS.includes(poly.rms_well_swn)) return null;
+    return WELLS.find((w) => w.swn === poly.rms_well_swn) || null;
+  }
+
+  function updateLmlControls() {
+    const box = $("#lml-controls");
+    if (!box) return;
+    const w = selectedLmlWell();
+    if (!w || w.mo_ft == null) { box.style.display = "none"; return; }
+    box.style.display = "flex";
+    const lml = w.mo_ft - lmlOffsetFt;
+    $("#lml-offset-slider").value = lmlOffsetFt;
+    $("#lml-offset-display").textContent = `${lmlOffsetFt} ft  (LML = ${lml.toFixed(0)} ft msl)`;
+    $("#lml-trigger-stats").innerHTML = lmlTriggerStatsHtml(w, lml);
+  }
+
+  // Historical trigger frequency: of the LML well's QA-Good GWE record, how
+  // many readings — and how many distinct years — fall below the candidate
+  // LML at the current slider offset. Answers "how often would this trigger
+  // have fired historically?"
+  function lmlTriggerStatsHtml(w, lml) {
+    const good = getMeas(w).filter((r) =>
+      r.gwe != null && r.qa && r.qa.toLowerCase().includes("good"));
+    if (!good.length) return `<span style="color:#888;">no QA-Good record to evaluate</span>`;
+    const below = good.filter((r) => r.gwe < lml);
+    const years = new Set(good.map((r) => r.d.slice(0, 4)));
+    const yearsBelow = new Set(below.map((r) => r.d.slice(0, 4)));
+    const pctVal = (100 * below.length) / good.length;
+    const pct = pctVal.toFixed(pctVal > 0 && pctVal < 10 ? 1 : 0);
+    const latest = good[good.length - 1];
+    const latestState = latest.gwe < lml
+      ? `<b style="color:#b45309;">below</b>`
+      : `<b style="color:#1b5e20;">above</b>`;
+    return `Historically <b>${below.length}</b> of ${good.length.toLocaleString()} QA-Good readings ` +
+      `(<b>${pct}%</b>) fell below this LML, in <b>${yearsBelow.size}</b> of ${years.size} years with data. ` +
+      `Most recent QA-Good reading (${latest.d}): ${latest.gwe.toFixed(1)} ft msl — ${latestState} the LML.`;
   }
 
   function renderHydrograph(poly, insideWells) {
@@ -796,36 +932,38 @@
       // Per-well thresholds for 2027 RMS wells.
       // Values are groundwater ELEVATIONS in ft msl, NOT depth-below-RPE.
       // Two sources are distinguished in the legend and line style:
-      //   "2022 GSP"    — adopted carry-over (dashed, solid name)
-      //   "AGWL Mirror" — Feb-April AGWL-anchored baseline pending GSA review
-      //                   (dotted line, "(AGWL mirror)" suffix in legend)
+      //   "2022 GSP"         — adopted carry-over (dashed, no suffix)
+      //   "Strawman Table 3" — county-published proposed values from the
+      //                        GWL Strawman memo (6/18/2026), dotted line,
+      //                        "(Strawman T3)" suffix in legend
+      const gse = w.gse != null ? +w.gse : null;
+      const toY = (val) => {
+        if (val == null) return null;
+        if (!isDtw) return { y: val, unitLabel: `${val.toFixed(1)} ft msl` };
+        if (gse == null) return null;
+        const y = gse - val;
+        return { y, unitLabel: `${y.toFixed(1)} ft below GSE` };
+      };
+      const pushLine = (val, label, lineColor, dash, width) => {
+        const conv = toY(val);
+        if (!conv) return;
+        traces.push({
+          x: ["1980-01-01", new Date().toISOString().slice(0, 10)],
+          y: [conv.y, conv.y],
+          mode: "lines", type: "scatter",
+          name: `${w.swn} ${label}: ${conv.unitLabel}`,
+          line: { color: lineColor, width: width || 1.6, dash },
+          hovertemplate: `${w.swn} ${label}: ${conv.unitLabel}<extra></extra>`,
+          visible,
+        });
+        here.push(tIdx++);
+      };
       if (w.is_2027_gwl_rms) {
-        const gse = w.gse != null ? +w.gse : null;
-        const isMirror = w.threshold_source === "AGWL Mirror";
-        const sourceSuffix = isMirror ? " (AGWL mirror)" : "";
-        const addThr = (val, label, lineColor, dashAdopted, dashMirror) => {
-          if (val == null) return;
-          let y, unitLabel;
-          if (isDtw) {
-            if (gse == null) return;
-            y = gse - val;
-            unitLabel = `${y.toFixed(1)} ft below GSE`;
-          } else {
-            y = val;
-            unitLabel = `${y.toFixed(1)} ft msl`;
-          }
-          traces.push({
-            x: ["1980-01-01", new Date().toISOString().slice(0, 10)],
-            y: [y, y],
-            mode: "lines", type: "scatter",
-            name: `${w.swn} ${label}: ${unitLabel}${sourceSuffix}`,
-            line: { color: lineColor, width: 1.6, dash: isMirror ? dashMirror : dashAdopted },
-            hovertemplate: `${w.swn} ${label}${sourceSuffix}: ${unitLabel}<extra></extra>`,
-            visible,
-          });
-          here.push(tIdx++);
-        };
-        // MO and MT: adopted=dash, mirror=dot
+        const isAdopted = w.threshold_source === "2022 GSP";
+        const sfx = isAdopted ? "" : " (Strawman T3)";
+        const addThr = (val, label, lineColor, dashAdopted, dashProposed) =>
+          pushLine(val, label + sfx, lineColor, isAdopted ? dashAdopted : dashProposed);
+        // MO and MT: adopted=dash, county-proposed=dot
         addThr(w.mo_ft, "MO", "#2a7", "dash", "dot");
         addThr(w.mt_ft, "MT", "#c00", "dash", "dot");
         // IM-2027 keeps dot in both modes (matches existing convention)
@@ -836,10 +974,23 @@
         const isPolySeed = (poly.rms_well_swn === w.swn) ||
           (poly.is_aggregate && (poly.rms_primary_swns || []).includes(w.swn));
         if (mtRaiseFt > 0 && w.mt_ft != null && isPolySeed) {
-          addThr(w.mt_ft + mtRaiseFt,
-                 `MT + ${mtRaiseFt} ft (sensitivity)`,
-                 "#ff8c00", "dash", "dash");
+          pushLine(w.mt_ft + mtRaiseFt, `MT + ${mtRaiseFt} ft (sensitivity)`,
+                   "#ff8c00", "dash");
         }
+        // Proposed LML line (strawman 6/18/2026) — only the 5 designated
+        // wells; level follows the §5.3 LML slider (MO minus offset).
+        if (LML_SWNS.includes(w.swn) && w.mo_ft != null) {
+          pushLine(w.mo_ft - lmlOffsetFt,
+                   `proposed LML (MO − ${lmlOffsetFt} ft)`,
+                   LML_COLOR, "dashdot", 2.2);
+        }
+      }
+      // TNC recommended ecological threshold — drawn for any well TNC
+      // evaluated (6 RMS + 3 supplemental), bright green to match TNC's
+      // own published hydrographs.
+      if (w.tnc_eco_threshold_ft != null) {
+        pushLine(w.tnc_eco_threshold_ft, "TNC eco threshold",
+                 TNC_COLOR, "longdash", 2);
       }
       traceIndices[w.swn] = here;
     });
@@ -982,13 +1133,23 @@
         : "";
       let thresholdPill = "";
       if (w.is_2027_gwl_rms && w.threshold_source) {
-        const cls = w.threshold_source === "2022 GSP" ? "pill-thr-gsp" : "pill-thr-mirror";
-        const label = w.threshold_source === "2022 GSP" ? "GSP-adopted MT/MO" : "AGWL mirror MT/MO";
-        const tip = w.threshold_source === "2022 GSP"
+        const isAdopted = w.threshold_source === "2022 GSP";
+        const cls = isAdopted ? "pill-thr-gsp" : "pill-thr-mirror";
+        const label = isAdopted ? "GSP-adopted MT/MO" : "Strawman Table 3 MT/MO";
+        const tip = isAdopted
           ? "Thresholds carried over unchanged from the adopted 2022 Vina GSP."
-          : "Baseline thresholds derived from each well's average Feb-April groundwater level, anchored to the per-zone offset between AGWL and adopted 2022 GSP MT/MO/IM (Christina Buck AGWL Mirror methodology). Pending GSA review.";
+          : "County-published PROPOSED values from Table 3 of the GWL Strawman (Vina GSA memo, 6/18/2026), derived with the county's Comparable ASGWL method. Not adopted SMC. The dashboard's independently computed AGWL Mirror reproduces these exactly for 27 of 29 wells.";
         thresholdPill = ` <span class="pill ${cls}" title="${tip}">${label}</span>`;
+        if (w.table3_divergence) {
+          thresholdPill += ` <span class="pill pill-flag" title="${w.table3_divergence.replace(/"/g, "&quot;")}">&#9888; T3 &ne; Mirror</span>`;
+        }
       }
+      const lmlPill = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn))
+        ? ` <span class="pill pill-lml" title="One of the 5 RMS wells the GWL Strawman (6/18/2026) proposes for a non-regulatory Local Management Level in GDE-sensitive areas.">LML proposed</span>`
+        : "";
+      const tncPill = (w.tnc_eco_threshold_ft != null)
+        ? ` <span class="pill pill-tnc" title="TNC recommended ecological threshold: ${w.tnc_eco_threshold_ft.toFixed(1)} ft msl (≈ mean summer GWE − 1.3 sd).">TNC eco</span>`
+        : "";
       const bcReason = (w.butte_co_reasoning || "").trim();
       // Show BC reasoning for ANY well that has it (not just RMS).
       // Use the well's SWN explicitly in the label so it's unambiguous which
@@ -1005,7 +1166,7 @@
             <input type="checkbox" data-well-toggle data-swn="${w.swn}" ${checked}>
           </td>
           <td class="well-name-cell" style="color:${color};">
-            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}${thresholdPill}
+            <span class="color-swatch" style="background:${color};"></span>${w.swn}${nestedPill}${thresholdPill}${lmlPill}${tncPill}
           </td>
           <td>${rmsPill}</td>
           <td>${contPill}</td>
@@ -1251,6 +1412,17 @@
     $("#tog-elev-correction").addEventListener("change", (e) => {
       elevCorrectionOn = e.target.checked;
       onSensitivityChange();
+    });
+    // Proposed-LML slider wiring (strawman overlay). Re-renders the LML
+    // readout + trigger stats, and the hydrograph when an LML polygon is
+    // on screen so the LML line tracks the slider.
+    $("#lml-offset-slider").addEventListener("input", (e) => {
+      lmlOffsetFt = +e.target.value;
+      updateLmlControls();
+      if (currentSelection && selectedLmlWell()) {
+        const insideWells = currentSelection.wellsWithColor.map((wc) => wc.well);
+        renderHydrograph(currentSelection.poly, insideWells);
+      }
     });
     // Auto-select first polygon
     if (RMS_POLYGONS.length > 0) {
