@@ -25,6 +25,10 @@ Output schema (one element per well in the xlsx):
                          (dashboard's independent AGWL Mirror cross-check;
                           null for carryovers and non-RMS)
     table3_divergence    (note string when county Table 3 != Mirror, else null)
+    agwl_ft, n_spring_obs, zone_offset_mt, zone_offset_mo, zone_offset_im
+                         (the Mirror's per-well input — Feb-April average GWL,
+                          spring-reading count, and the zone offsets applied —
+                          so popups can show the derivation arithmetic)
 """
 import json
 from pathlib import Path
@@ -95,6 +99,13 @@ def main():
             "mirror_mo_ft": thresh.get("mirror_mo_ft"),
             "mirror_im_2027_ft": thresh.get("mirror_im_2027_ft"),
             "table3_divergence": thresh.get("table3_divergence"),
+            # Per-well Mirror inputs, so the map popup can show the
+            # derivation (AGWL − zone offsets → Mirror MT/MO/IM).
+            "agwl_ft": thresh.get("agwl_ft"),
+            "n_spring_obs": thresh.get("n_spring_obs"),
+            "zone_offset_mt": thresh.get("zone_offset_mt"),
+            "zone_offset_mo": thresh.get("zone_offset_mo"),
+            "zone_offset_im": thresh.get("zone_offset_im"),
         }
         out.append(rec)
 

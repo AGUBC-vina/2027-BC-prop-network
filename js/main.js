@@ -482,6 +482,23 @@
     const lmlNote = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn) && w.mo_ft != null)
       ? `<div style="margin-top:4px;color:${LML_COLOR};font-size:11.5px;"><b>Proposed LML polygon (strawman 6/18/2026):</b> LML at MO &minus; ${lmlOffsetFt} ft = ${(w.mo_ft - lmlOffsetFt).toFixed(0)} ft msl. Non-regulatory trigger for GDE-sensitive areas — explore the offset with the §5.3 slider.</div>`
       : "";
+    // Per-well AGWL derivation for the 17 Strawman Table 3 wells: the
+    // well's own Feb-April average GWL (the Mirror methodology's input)
+    // and the zone-offset subtraction, so the popup explains where the
+    // dotted threshold lines come from. Carryovers skip this — their
+    // MT/MO/IM are adopted 2022 GSP values, not AGWL-derived.
+    const agwlNote = (w.threshold_source === "Strawman Table 3" && w.agwl_ft != null)
+      ? `<div style="margin-top:4px;color:#555;font-size:11.5px;">` +
+        `<b>Feb&ndash;Apr AGWL:</b> ${w.agwl_ft.toFixed(1)} ft msl ` +
+        `<span style="color:#888;">(${(w.n_spring_obs || 0).toLocaleString()} spring obs)</span>` +
+        ` &minus; ${w.rms_mgmt_area_short} offsets ` +
+        `${w.zone_offset_mt.toFixed(1)} / ${w.zone_offset_mo.toFixed(1)} / ${w.zone_offset_im.toFixed(1)} ft ` +
+        `&rarr; <b>Mirror MT/MO/IM ${w.mirror_mt_ft} / ${w.mirror_mo_ft} / ${w.mirror_im_2027_ft}</b>` +
+        (w.table3_divergence
+          ? ""
+          : ` <span style="color:#1b5e20;">= county Table 3</span>`) +
+        `</div>`
+      : "";
     // County-Table-3 vs dashboard-Mirror cross-check flag (2 wells).
     const divergenceNote = w.table3_divergence
       ? `<div style="margin-top:6px;padding:5px 8px;background:#fff8e1;border-left:3px solid #f59e0b;font-size:11px;color:#7a5c00;line-height:1.4;"><b>&#9888; Threshold cross-check:</b> ${w.table3_divergence}</div>`
@@ -532,6 +549,7 @@
         ${chicoNote}
         ${inheritNote}
         ${lmlNote}
+        ${agwlNote}
         ${divergenceNote}
         ${wseLine}
         ${recordLine}

@@ -374,6 +374,43 @@ geographic location. The 2 wells that are RMS for the North network
 but physically inside Chico (`22N01E09B001M`, `22N01E20K001M`) use the
 North offsets, consistent with their role as North RMS wells.
 
+#### Per-well derivation (17 Strawman Table 3 wells)
+
+Each row shows the well's own **average Feb–April groundwater level**
+(AGWL — the Mirror methodology's input), the number of QA-Good spring
+readings behind it, and the Mirror result of subtracting the zone
+offsets above, side-by-side with the county Table 3 values the
+dashboard displays. Worked example, first row:
+103.2 − 92.12 → MT 11; 103.2 − 30.46 → MO 73; 103.2 − 28.12 → IM 75.
+
+| Well | Zone | Feb–Apr AGWL (ft msl) | n spring obs | Mirror MT / MO / IM | Table 3 MT / MO / IM (displayed) |
+|---|---|---:|---:|---|---|
+| `22N01E09B001M` | North | 137.1 | 36 | 46 / 113 / 115 | 46 / 113 / 115 |
+| `22N01E20K001M` | North | 139.3 | 102 | 48 / 115 / 117 | 48 / 115 / 117 |
+| `23N01E29P002M` | North | 151.8 | 40 | 61 / 127 / 129 | 61 / 127 / 129 |
+| `23N01W09E001M` | North | 158.8 | 112 | 68 / 135 / 136 | 68 / 135 / 136 |
+| `23N01W10M001M` | North | 162.2 | 1,862 | 71 / 138 / 140 | 71 / 138 / 140 |
+| `23N01W14R002M` | North | 156.7 | 50 | 66 / 132 / 134 | 66 / 132 / 134 |
+| `23N01W27L001M` | North | 145.6 | 61 | 55 / 121 / 123 | 55 / 121 / 123 |
+| `23N01W28M004M` | North | 142.2 | 1,423 | 51 / 118 / 120 | 51 / 118 / 120 |
+| `20N01E02H003M` | South | 103.2 | 1,864 | 11 / 73 / 75 | 11 / 73 / 75 |
+| `20N02E09G001M` | South | 117.4 | 1,639 | 25 / 87 / 89 | 25 / 87 / 89 |
+| `20N03E33L001M` | South | 117.9 | 1,875 | 26 / 87 / 90 | 26 / 87 / 90 |
+| `21N01E10B003M` | South | 122.2 | 38 | 30 / 92 / 94 | **10 / 64 / 67** &#9888; |
+| `21N01E13L004M` | South | 112.9 | 1,020 | 21 / 82 / 85 | 21 / 82 / 85 |
+| `21N01E25K001M` | South | 113.1 | 40 | 21 / 83 / 85 | 21 / 83 / 85 |
+| `21N01E27D001M` | South | 114.7 | 94 | 23 / 84 / 87 | 23 / 84 / 87 |
+| `21N02E32E001M` | South | 117.5 | 21 | 25 / 87 / 89 | **30 / 91 / 93** &#9888; |
+| `21N03E32B001M` | South | 225.0 | 24 | 133 / 195 / 197 | 133 / 195 / 197 |
+
+&#9888; = county Table 3 differs from the Mirror — see the cross-check
+table above for the trace.
+
+The 12 GSP-carryover wells are absent here by design: their MT/MO/IM
+are the adopted 2022 values, not AGWL-derived. Regenerate this table
+with `python3 scripts/print_agwl_table.py` after re-running
+`compute_thresholds.py`, then rebuild `js/readme-data.js`.
+
 #### How we arrived at this methodology
 
 Three definitions of "average spring groundwater level" were tested:
