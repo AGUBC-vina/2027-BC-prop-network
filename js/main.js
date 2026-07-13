@@ -410,6 +410,13 @@
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
       options: { maxZoom: 19, attribution: "Tiles © Esri" },
     },
+    // USGS National Map topo: authoritative NHD blue-line streams + named
+    // creeks/rivers (Sacramento R., Big Chico / Butte / Mud Creek, etc.).
+    // Best basemap for locating hydrography relative to the RMS network / GDEs.
+    "usgs-topo": {
+      url: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
+      options: { maxZoom: 16, attribution: "Tiles © USGS The National Map" },
+    },
   };
 
   function setBasemap(key) {
@@ -989,9 +996,17 @@
     if (!w || w.mo_ft == null) { box.style.display = "none"; return; }
     box.style.display = "flex";
     const lml = w.mo_ft - lmlOffsetFt;
+    // Track the §5.3 hydrograph GWE/DTW pill: when Depth-to-GW mode is active,
+    // show the LML level (and the trigger readings) as ft-below-GSE instead of
+    // ft msl, so the green bar reads in the same units as the plot above it.
+    const gse = w.gse != null ? +w.gse : null;
+    const isDtw = currentSelection?.displayMode === "dtw" && gse != null;
     $("#lml-offset-slider").value = lmlOffsetFt;
-    $("#lml-offset-display").textContent = `${lmlOffsetFt} ft  (LML = ${lml.toFixed(0)} ft msl)`;
-    $("#lml-trigger-stats").innerHTML = lmlTriggerStatsHtml(w, lml);
+    const lmlLevelTxt = isDtw
+      ? `LML = ${(gse - lml).toFixed(0)} ft below GSE`
+      : `LML = ${lml.toFixed(0)} ft msl`;
+    $("#lml-offset-display").textContent = `${lmlOffsetFt} ft  (${lmlLevelTxt})`;
+    $("#lml-trigger-stats").innerHTML = lmlTriggerStatsHtml(w, lml, isDtw, gse);
     $("#lml-gde-stats").innerHTML = gdePersistenceHtml(w);
   }
 
@@ -1010,7 +1025,7 @@
   // LML at the current slider offset, split by drought vs non-drought year.
   // Answers "how often would this trigger have fired historically, and would
   // it have fired on something other than a drought dip?"
-  function lmlTriggerStatsHtml(w, lml) {
+  function lmlTriggerStatsHtml(w, lml, isDtw, gse) {
     const good = getMeas(w).filter((r) =>
       r.gwe != null && r.qa && r.qa.toLowerCase().includes("good"));
     if (!good.length) return `<span style="color:#888;">no QA-Good record to evaluate</span>`;
@@ -1024,12 +1039,15 @@
     const latestState = latest.gwe < lml
       ? `<b style="color:#b45309;">below</b>`
       : `<b style="color:#1b5e20;">above</b>`;
+    const latestTxt = isDtw && gse != null
+      ? `${(gse - latest.gwe).toFixed(1)} ft below GSE`
+      : `${latest.gwe.toFixed(1)} ft msl`;
     const split = yearsBelow.length
       ? ` — <b>${nonDroughtYears.length}</b> of those ${yearsBelow.length === 1 ? "was a non-drought year" : "were non-drought years"}${nonDroughtYears.length ? ` (${nonDroughtYears.sort().join(", ")})` : ""}`
       : ` (never — including through the 2012&ndash;16 and 2020&ndash;22 droughts)`;
     return `Historically <b>${below.length}</b> of ${good.length.toLocaleString()} QA-Good readings ` +
       `(<b>${pct}%</b>) fell below this LML, in <b>${yearsBelow.length}</b> of ${years.size} years with data${split}. ` +
-      `Most recent QA-Good reading (${latest.d}): ${latest.gwe.toFixed(1)} ft msl — ${latestState} the LML.`;
+      `Most recent QA-Good reading (${latest.d}): ${latestTxt} — ${latestState} the LML.`;
   }
 
   // Great-circle distance in miles between two lat/lon points.
@@ -1207,6 +1225,7 @@
     currentSelection.displayMode = mode;
     const insideWells = currentSelection.wellsWithColor.map((wc) => wc.well);
     renderHydrograph(currentSelection.poly, insideWells);
+    updateLmlControls();  // keep the §5.3 LML green bar in the same units
   }
 
   /* -------------- §5.3 sortable well detail table (cosmo-style) -------- */
