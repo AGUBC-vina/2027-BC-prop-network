@@ -24,11 +24,32 @@
     "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
     "#3b5fd9", "#c25a00", "#1ea54a", "#a32424", "#7a4ba1",
   ];
-  const DROUGHT_PERIODS = [
-    ["1991-01-01", "1993-12-31"],
-    ["2012-01-01", "2015-12-31"],
-    ["2020-01-01", "2022-12-31"],
-  ];
+  // Drought context is driven by DWR's official Sacramento Valley Water Year
+  // Index (js/wy-index-data.js, const WY_INDEX). "Drought" = a Dry or Critical
+  // water year. Used to (a) shade those years on the §5.3 hydrograph and
+  // (b) split the LML trigger-frequency readout into drought vs non-drought
+  // water years. This replaced a hardcoded 3-window list (1991-93, 2012-15,
+  // 2020-22) that missed 1976-77, 1987-92, and 2007-09 entirely and mislabeled
+  // the early-90s and 2012-16 drought spans. See README "Drought shading".
+  const DROUGHT_FILL = {
+    D: "rgba(240,140,0,0.09)",   // Dry — light orange
+    C: "rgba(220,70,0,0.18)",    // Critical — deeper orange
+  };
+
+  // Water year (Oct 1 - Sep 30) for an ISO date string: Oct-Dec readings
+  // belong to the NEXT calendar year's water year (e.g. 2007-11-15 -> WY2008).
+  function waterYearOf(isoDate) {
+    const y = +isoDate.slice(0, 4), m = +isoDate.slice(5, 7);
+    return y + (m >= 10 ? 1 : 0);
+  }
+
+  // True if a water year is Dry or Critical on the Sacramento Valley Index.
+  // Unclassified years (the in-progress WY, or a stale/missing data file)
+  // degrade to "not drought" — never a crash.
+  function isDryOrCriticalWY(wy) {
+    const rec = (typeof WY_INDEX !== "undefined") ? WY_INDEX[wy] : null;
+    return !!rec && (rec.class === "D" || rec.class === "C");
+  }
 
   /* -------------- strawman overlays (Vina GSA memo, 2026-06-18) ---------- */
   // The 5 RMS wells the GWL Strawman proposes for non-regulatory Local
@@ -1028,29 +1049,22 @@
     $("#lml-gde-stats").innerHTML = gdePersistenceHtml(w);
   }
 
-  // True if a "YYYY" year string falls inside one of the DROUGHT_PERIODS. Used
-  // to split LML trigger frequency into drought vs non-drought years — the
-  // non-drought exceedances are the ones that would fire a management response
-  // on something other than weather.
-  function isDroughtYear(yStr) {
-    const y = parseInt(yStr, 10);
-    return DROUGHT_PERIODS.some(([a, b]) =>
-      y >= parseInt(a.slice(0, 4), 10) && y <= parseInt(b.slice(0, 4), 10));
-  }
-
   // Historical trigger frequency: of the LML well's QA-Good GWE record, how
-  // many readings — and how many distinct years — fall below the candidate
-  // LML at the current slider offset, split by drought vs non-drought year.
-  // Answers "how often would this trigger have fired historically, and would
-  // it have fired on something other than a drought dip?"
+  // many readings — and how many distinct WATER YEARS — fall below the
+  // candidate LML at the current slider offset, split by drought (Dry/Critical
+  // on the Sacramento Valley Index) vs non-drought water year. Answers "how
+  // often would this trigger have fired historically, and would it have fired
+  // on something other than a drought?" Classified by water year to match the
+  // index and the hydrograph shading (and because groundwater lows and the
+  // index are both water-year framed — this audience's native vocabulary).
   function lmlTriggerStatsHtml(w, lml, isDtw, gse) {
     const good = getMeas(w).filter((r) =>
       r.gwe != null && r.qa && r.qa.toLowerCase().includes("good"));
     if (!good.length) return `<span style="color:#888;">no QA-Good record to evaluate</span>`;
     const below = good.filter((r) => r.gwe < lml);
-    const years = new Set(good.map((r) => r.d.slice(0, 4)));
-    const yearsBelow = [...new Set(below.map((r) => r.d.slice(0, 4)))];
-    const nonDroughtYears = yearsBelow.filter((y) => !isDroughtYear(y));
+    const wyAll = new Set(good.map((r) => waterYearOf(r.d)));
+    const wyBelow = [...new Set(below.map((r) => waterYearOf(r.d)))].sort();
+    const nonDroughtWYs = wyBelow.filter((wy) => !isDryOrCriticalWY(wy));
     const pctVal = (100 * below.length) / good.length;
     const pct = pctVal.toFixed(pctVal > 0 && pctVal < 10 ? 1 : 0);
     const latest = good[good.length - 1];
@@ -1060,11 +1074,11 @@
     const latestTxt = isDtw && gse != null
       ? `${(gse - latest.gwe).toFixed(1)} ft below GSE`
       : `${latest.gwe.toFixed(1)} ft msl`;
-    const split = yearsBelow.length
-      ? ` — <b>${nonDroughtYears.length}</b> of those ${yearsBelow.length === 1 ? "was a non-drought year" : "were non-drought years"}${nonDroughtYears.length ? ` (${nonDroughtYears.sort().join(", ")})` : ""}`
-      : ` (never — including through the 2012&ndash;16 and 2020&ndash;22 droughts)`;
+    const split = wyBelow.length
+      ? ` — <b>${nonDroughtWYs.length}</b> of those ${wyBelow.length === 1 ? "was a non-drought (not Dry/Critical) water year" : "were non-drought (not Dry/Critical) water years"}${nonDroughtWYs.length ? ` (${nonDroughtWYs.join(", ")})` : ""}`
+      : ` (never — including every Dry and Critical water year in this well's record)`;
     return `Historically <b>${below.length}</b> of ${good.length.toLocaleString()} QA-Good readings ` +
-      `(<b>${pct}%</b>) fell below this LML, in <b>${yearsBelow.length}</b> of ${years.size} years with data${split}. ` +
+      `(<b>${pct}%</b>) fell below this LML, in <b>${wyBelow.length}</b> of ${wyAll.size} water years with data${split}. ` +
       `Most recent QA-Good reading (${latest.d}): ${latestTxt} — ${latestState} the LML.`;
   }
 
@@ -1103,6 +1117,51 @@
       `Spring 90th pct <b>${springNear}</b> &middot; persist to fall <b>${fallNear}</b>${persistNote}. ` +
       `Nearest GDE that persists past the spring peak: <b>${nearest}</b>. ` +
       `<span style="color:#607d8b;font-size:11px;">(ESA GDE Technical Study centroids; use §5.2 "ESA GDE areas" + scenario dropdown to view the footprints.)</span>`;
+  }
+
+  // Plotly background rects for every Dry/Critical water year that overlaps
+  // the plotted record. Consecutive same-class water years merge into one rect
+  // (fewer seams). CRITICAL: bands are clipped to the data extent — Plotly
+  // includes layout shapes in x-axis autorange, so an unclipped 1947 band
+  // would stretch a 2009-start well's axis back 60 empty years. A water year
+  // spans Oct 1 (prev calendar year) -> Oct 1.
+  function droughtShapes(insideWells) {
+    if (typeof WY_INDEX === "undefined") return [];
+    let minD = null, maxD = null;
+    insideWells.forEach((w) => {
+      const ms = MEASUREMENTS[w.site_code];
+      if (!ms) return;
+      ms.forEach((m) => {
+        if (m.d == null) return;
+        if (minD == null || m.d < minD) minD = m.d;
+        if (maxD == null || m.d > maxD) maxD = m.d;
+      });
+    });
+    if (minD == null) return [];
+    // Merge consecutive same-class Dry/Critical water years into runs.
+    const years = Object.keys(WY_INDEX).map(Number).sort((a, b) => a - b);
+    const runs = [];
+    years.forEach((y) => {
+      const c = WY_INDEX[y].class;
+      if (c !== "D" && c !== "C") return;
+      const last = runs[runs.length - 1];
+      if (last && last.cls === c && last.end === y - 1) last.end = y;
+      else runs.push({ cls: c, start: y, end: y });
+    });
+    const shapes = [];
+    runs.forEach((r) => {
+      let x0 = `${r.start - 1}-10-01`;
+      let x1 = `${r.end}-10-01`;
+      if (x1 <= minD || x0 >= maxD) return;   // no overlap with plotted data
+      if (x0 < minD) x0 = minD;               // clip to data edges
+      if (x1 > maxD) x1 = maxD;
+      shapes.push({
+        type: "rect", xref: "x", yref: "paper",
+        x0, x1, y0: 0, y1: 1,
+        fillcolor: DROUGHT_FILL[r.cls], line: { width: 0 }, layer: "below",
+      });
+    });
+    return shapes;
   }
 
   function renderHydrograph(poly, insideWells) {
@@ -1204,12 +1263,16 @@
     });
     if (currentSelection) currentSelection.traceIndices = traceIndices;
 
-    // Drought shading (lowest layer)
-    const shapes = DROUGHT_PERIODS.map(([x0, x1]) => ({
-      type: "rect", xref: "x", yref: "paper",
-      x0, x1, y0: 0, y1: 1,
-      fillcolor: "rgba(255,152,0,0.10)", line: { width: 0 }, layer: "below",
-    }));
+    // Drought shading (lowest layer): Dry/Critical water years from the
+    // Sacramento Valley Index, clipped to the plotted record and memoized per
+    // polygon selection (independent of the DTW toggle and LML slider).
+    let shapes;
+    if (currentSelection && currentSelection._droughtShapes) {
+      shapes = currentSelection._droughtShapes;
+    } else {
+      shapes = droughtShapes(insideWells);
+      if (currentSelection) currentSelection._droughtShapes = shapes;
+    }
 
     const yTitle = isDtw ? "Depth to Groundwater (ft below GSE)" : "Groundwater Elevation (ft msl)";
     const titleText = isDtw
