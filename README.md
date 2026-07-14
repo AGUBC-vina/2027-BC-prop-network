@@ -70,6 +70,7 @@ python3 scripts/build_polygons_three_zone.py   # -> data/vina_2027_thiessen_thre
 python3 scripts/fetch_dwr_measurements.py      # -> js/measurements-data.js (~15 MB)
 python3 scripts/compute_thresholds.py          # -> data/thresholds.json
 python3 scripts/build_wells_js.py              # -> js/wells-data.js
+python3 scripts/fetch_wy_index.py              # -> js/wy-index-data.js (DWR CDEC WSIHIST; drought shading)
 python3 scripts/build_readme_js.py             # -> js/readme-data.js (so the in-page README accordion is in sync)
 
 # 3. open the dashboard
@@ -91,6 +92,7 @@ GitHub Pages, S3, or open `index.html` directly.
 │   ├── polygons-data-three-zone.js         const RMS_POLYGONS_THREE_ZONE — 26 entries (13 N Voronoi cells + 1 dissolved Chico polygon + 12 S Voronoi cells)
 │   ├── measurements-data.js                const MEASUREMENTS, MEASUREMENTS_META — periodic GWL
 │   ├── basin-boundary.js                   const VINA_BOUNDARY — B118 5-021.57 GeoJSON
+│   ├── wy-index-data.js                    const WY_INDEX — Sacramento Valley 40-30-30 water-year types (drought shading); from DWR CDEC WSIHIST
 │   ├── readme-data.js                      const README_MD — this README bundled for the in-page accordion
 │   └── main.js                             UI logic (Leaflet, Plotly, layer toggles)
 ├── data/                                   Intermediate JSON for the JS bundles
@@ -110,6 +112,7 @@ GitHub Pages, S3, or open `index.html` directly.
     ├── compute_thresholds.py               GSP carryovers + AGWL Mirror -> thresholds.json
     ├── build_wells_js.py                   wells_resolved + thresholds -> wells-data.js
     ├── update_workbook_thresholds.py       Appends MT/MO/IM/Source columns to xlsx
+    ├── fetch_wy_index.py                    DWR CDEC WSIHIST -> wy-index-data.js (drought shading)
     └── build_readme_js.py                  README.md -> readme-data.js
 ```
 
@@ -518,6 +521,61 @@ blank.
 
 ---
 
+## Drought shading (§5.3 hydrograph)
+
+The §5.3 hydrograph shades **Dry** and **Critical** water years behind the
+groundwater traces, so a viewer can see how each dip lines up with regional
+hydrologic conditions across the whole record (which reaches back to 1946
+for the longest-record wells).
+
+**Source.** Shading is driven by DWR's official **Sacramento Valley Water
+Year Index** — the "40-30-30" index that classifies each water year
+(Oct 1 – Sep 30) since 1906 as Wet, Above Normal, Below Normal, Dry, or
+Critical. This is the correct index for the Vina Subbasin: the subbasin
+sits in the northern Sacramento Valley, and the Feather River, which
+borders it, is one of the index's four component rivers. The values are
+pulled verbatim from DWR CDEC's WSIHIST report by
+[`scripts/fetch_wy_index.py`](scripts/fetch_wy_index.py) into
+[`js/wy-index-data.js`](js/wy-index-data.js) (`const WY_INDEX`), with the
+retrieval date and a parse self-check (known-year anchors) recorded in that
+file. Re-run the script annually; the in-progress water year is provisional
+until DWR's final May B120 determination and is left unshaded until then.
+
+**Only Dry and Critical years are shaded** — Critical in a deeper orange,
+Dry in a lighter one (see the §5.3 legend). Below Normal and the wet-side
+classes are left unshaded; "Dry and Critical" is the conventional
+water-year language for drought, and shading anything broader would make
+the drought/non-drought split below look gerrymandered. Consecutive
+same-class years are merged into a single band, and bands are clipped to
+each polygon's actual data window so they never stretch a short-record
+well's axis back to 1946.
+
+**This replaced a hardcoded three-window list** (1991-93, 2012-15, 2020-22)
+that missed the 1976-77, 1987-92, and 2007-09 droughts entirely and
+mislabeled the others — the early-90s drought actually ran 1987-1992, and
+the Dry/Critical core of the "2012-16 drought" is water years 2013-2015
+(2012 and 2016 were Below Normal on the index). Note that the common name
+for a drought usually spans more calendar years than its Dry/Critical core,
+so a casually-remembered drought window and the shaded bands won't always
+match year-for-year — the bands follow the official index.
+
+**What the shading is and isn't.** It marks **hydrologic water-year type**
+(a surface-runoff-based classification), not observed local groundwater
+drought. Groundwater responds to multi-year sequences and to local pumping
+and recharge, so an isolated Dry year with no visible dip in the trace — or
+a dip that lags the shaded year — is expected, not a contradiction.
+
+The same Dry/Critical classification drives the drought vs non-drought
+split in the §5.3 LML trigger-frequency readout (see "Proposed Local
+Management Level (LML) polygons" below), so the dashboard tells one
+consistent drought story. Rebuild:
+
+```bash
+python3 scripts/fetch_wy_index.py   # -> js/wy-index-data.js (fetches DWR CDEC WSIHIST)
+```
+
+---
+
 ## Strawman overlay: proposed LML polygons (2026-07-07)
 
 Overlay added from the stakeholder materials circulating ahead of the
@@ -563,10 +621,18 @@ Dashboard features:
   hydrograph draws the proposed LML line at the slider value.
 - **Historical trigger frequency** — for the selected LML well, the
   widget reports how many QA-Good readings (and how many distinct
-  years) fell below the candidate LML across the well's DWR record,
-  i.e. how often the trigger would have fired historically at each
-  offset. This is the number to watch when weighing whether a given
+  **water years**) fell below the candidate LML across the well's DWR
+  record, i.e. how often the trigger would have fired historically at
+  each offset. This is the number to watch when weighing whether a given
   offset is an early-warning level or a de-facto operating constraint.
+  The readout further splits those water years into **drought (Dry or
+  Critical) vs non-drought**, using the same Sacramento Valley Water
+  Year Index that drives the hydrograph shading (see "Drought shading"
+  above) — a candidate LML that would only ever have tripped in Dry or
+  Critical years is behaving like an early-warning level; one that would
+  have tripped in non-drought years is closer to an operating
+  constraint. The split is descriptive only; it does not change any LML,
+  MO, or threshold value.
 
 ### ESA GDE areas — six-scenario overlay
 
@@ -683,6 +749,7 @@ state.
 | Vina Subbasin boundary | DWR ArcGIS REST i08 B118 | `Basin_Subbasin_Number='5-021.57'` |
 | MT / MO / IM-2027 thresholds | 2022 Vina GSP (for the 12 carryover wells) + county Strawman Table 3 (for the 17 new wells), cross-checked by the dashboard's AGWL Mirror | see "MT / MO / IM-2027 threshold methodology" above |
 | Proposed LML designations (5 RMS wells) + proposed MT/MO/IM (Table 3) | Vina GSA GWL Strawman memo, 2026-06-18 ("Consideration of a Strawman Proposal: Approach to Addressing the Groundwater Level Sustainability Indicator...", Attachment A) | https://www.vinagsa.org/periodic-evaluation-supporting-documents |
+| Water-year-type drought shading (§5.3) | DWR Sacramento Valley 40-30-30 Water Year Index (WSIHIST), pulled by `scripts/fetch_wy_index.py` | https://cdec.water.ca.gov/reportapp/javareports?name=WSIHIST |
 
 DWR refresh stamp is shown in the page header — it comes from
 `MEASUREMENTS_META.fetched_at` in `js/measurements-data.js`. To refresh, just
