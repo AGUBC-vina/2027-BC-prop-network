@@ -836,6 +836,62 @@ pipeline outputs changed:
 Cache-busters: wells-data.js `?v=17`, readme-data.js `?v=26`,
 main.js `?v=26`. Branch `per-well-agwl`.
 
+### 19. 2026-07-13 — Drought shading driven by the Sacramento Valley Water Year Index
+
+Tovey flagged that the §5.3 hydrograph's drought shading (a hardcoded
+3-window list: 1991-93, 2012-15, 2020-22) missed the dry years of the
+1970s, mid-1980s, and 2007-2010 that are plainly in the record (the
+data reaches 1946; there are 900 QA-Good readings in 1976-77, 2,730 in
+1987-92, 22,140 in 2007-2010). Replaced the hardcoded list with DWR's
+official **Sacramento Valley 40-30-30 Water Year Index**, shading Dry
+and Critical water years, and aligned the §5.3 LML trigger-frequency
+drought/non-drought split to the same definition so the dashboard tells
+one consistent drought story.
+
+Reviewed by a Fable 5 peer agent before implementation; its amendments
+were folded in (band clipping, per-reading water-year classification,
+generator + anchor assertions, remnant sweep).
+
+- **Data.** New `scripts/fetch_wy_index.py` pulls CDEC WSIHIST, parses
+  the **Sacramento** Yr-type column (NOT San Joaquin — the classic parse
+  bug), and writes `js/wy-index-data.js` (`const WY_INDEX`, WY 1901-2025,
+  24 Dry + 18 Critical) with a retrieval-date header and hard anchor
+  assertions (1976/1977 C, 1983 W, 2015 C, 2017 W) that fail the build on
+  parse drift. WY2026 isn't classified yet (in-progress), so the record
+  tail stays unshaded. Sacramento Valley is the correct index for Vina
+  (northern Sac Valley; the Feather is one of the index's four rivers).
+- **Shading (`main.js` `droughtShapes`).** Bands for Dry (light orange,
+  alpha 0.09) and Critical (deeper, 0.18); consecutive same-class water
+  years merge; a band spans Oct 1 (prev cal yr) → Oct 1. **Clipped to the
+  union of the plotted wells' measurement extent** — Plotly includes
+  layout shapes in x-axis autorange, so an unclipped 1947 band would have
+  stretched a short-record polygon's axis back 60 empty years. Memoized on
+  `currentSelection` so slider ticks / DTW toggles don't recompute.
+  `yref:"paper"` makes bands immune to the DTW y-axis reversal.
+- **LML split (`isDryOrCriticalWY` + `lmlTriggerStatsHtml`).** Replaced
+  the calendar-year `isDroughtYear`/`DROUGHT_PERIODS` with a water-year
+  classifier (`waterYearOf`: Oct-Dec → next WY). The readout now counts
+  distinct **water years** and its "never" fallback is generated from the
+  data, not a hardcoded drought-name string. **Audit:** the landed LML
+  position is unchanged — MO−15 still trips exactly one well
+  (`22N01E20K001M`, the 2011-10-13 outlier reading, WY2012 = Below
+  Normal, non-drought under both old and new) and MO−20 never trips.
+  Changes only appear at MO−0/5/10, which aren't cited anywhere.
+- **Legend/CSS/README.** Single hardcoded drought chip → two swatches
+  (Dry / Critical water year); `.drought-strip` CSS split into two hues.
+  New README "Drought shading (§5.3 hydrograph)" section (source, class
+  legend, water-year mapping, Dry+Critical rationale, "hydrologic
+  year-type not observed local GW drought" caveat, note that common
+  drought names span more years than their Dry/Critical cores).
+
+No polygon geometry, thresholds, or wells-data touched — shading + docs
+only. Verified in preview: 21 bands on a 1946-record polygon aligning
+with 1976-77 / 1987-94 / 2006-09 / 2013-15 / 2020-22, short-record
+polygons not over-stretched, LML readout in water years, no console
+errors. Cache-busters: `wy-index-data.js ?v=1` (new), readme-data.js
+`?v=27`, main.js `?v=27`. Branch `per-well-agwl` (stacked on the AGWL
+work, entry 18).
+
 ---
 
 ## Key methodological decisions
