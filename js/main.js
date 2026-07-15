@@ -291,20 +291,26 @@
     };
   }
   function currentWSE(w) {
-    // Latest non-null GWE regardless of QA flag (popup helper).
+    // Latest QA-Good GWE (popup helper) — same convention as every graph
+    // and statistic on the page. Falls back to the latest reading of any
+    // grade (labeled with its QA grade) only if a well has no Good record.
     // Returns both the groundwater elevation (msl) and depth-to-groundwater
     // (below GSE) when available. Falls back to computing dtw from gwe + gse
     // for the few records where only gwe is present.
     const ms = getMeas(w);
     const gse = w.gse != null ? +w.gse : null;
-    for (let i = ms.length - 1; i >= 0; i--) {
-      if (ms[i].gwe != null) {
-        let dtw = ms[i].dtw;
-        if (dtw == null && gse != null) dtw = gse - ms[i].gwe;
-        return { gwe: ms[i].gwe, dtw, date: ms[i].d, qa: ms[i].qa };
+    const pick = (requireGood) => {
+      for (let i = ms.length - 1; i >= 0; i--) {
+        const m = ms[i];
+        if (m.gwe == null) continue;
+        if (requireGood && !(m.qa && m.qa.toLowerCase().includes("good"))) continue;
+        let dtw = m.dtw;
+        if (dtw == null && gse != null) dtw = gse - m.gwe;
+        return { gwe: m.gwe, dtw, date: m.d, qa: m.qa };
       }
-    }
-    return null;
+      return null;
+    };
+    return pick(true) || pick(false);
   }
 
   /* -------------- 5.2 Leaflet map --------------------------------------- */
@@ -410,6 +416,10 @@
   let polygonRefs = {};   // zone_label -> { leafletPoly, dataPoly }
   let selectedPoly = null;
   let shadingOn = true;
+  // Wells whose manual QA-Good record has a multi-year lapse covered by a
+  // county continuous recorder — bridged in the hydrograph by a flagged
+  // "recorder-derived" monthly static-level proxy (see renderHydrograph).
+  const RECORDER_DERIVED_SWNS = ["22N01W05M001M"];
 
   const BASEMAPS = {
     "carto": {
@@ -1180,27 +1190,74 @@
       const here = [];
 
       if (ms && ms.length) {
-        const xs = ms.map((m) => m.d);
         // For DTW mode: use the `dtw` field if present, else fall back to (gse - gwe)
         const gse = w.gse != null ? +w.gse : null;
-        const ys = ms.map((m) => {
+        const toYval = (m) => {
           if (!isDtw) return m.gwe;
           if (m.dtw != null) return m.dtw;
           if (m.gwe != null && gse != null) return gse - m.gwe;
           return null;
-        });
-        traces.push({
-          x: xs, y: ys,
-          type: "scatter", mode: "lines+markers",
-          name: w.swn + (w.is_2027_gwl_rms ? " (RMS)" : ""),
-          line: { color, width: w.is_2027_gwl_rms ? 2.2 : 1.4 },
-          marker: { size: w.is_2027_gwl_rms ? 4 : 3, color },
-          hovertemplate: isDtw
-            ? `<b>${w.swn}</b><br>%{x}<br>%{y:.1f} ft below GSE<extra></extra>`
-            : `<b>${w.swn}</b><br>%{x}<br>%{y:.1f} ft msl<extra></extra>`,
-          visible,
-        });
-        here.push(tIdx++);
+        };
+        // QA-Good readings only — the population every stat on this page
+        // (LML trigger counts, AGWL mirror, exceedance tables) is computed
+        // from, and the same convention as the GSA consultant hydrographs
+        // and the strawman's SMC method ("excluding questionable
+        // measurements"). DWR-flagged questionable readings (e.g. the
+        // pumping-influenced recorder series at 05M001M) are not plotted,
+        // except via the flagged recorder-derived bridge series below.
+        const isGood = (m) => m.qa && m.qa.toLowerCase().includes("good");
+        const msGood = ms.filter(isGood);
+        if (msGood.length) {
+          traces.push({
+            x: msGood.map((m) => m.d), y: msGood.map(toYval),
+            type: "scatter", mode: "lines+markers",
+            name: w.swn + (w.is_2027_gwl_rms ? " (RMS)" : ""),
+            line: { color, width: w.is_2027_gwl_rms ? 2.2 : 1.4 },
+            marker: { size: w.is_2027_gwl_rms ? 4 : 3, color },
+            hovertemplate: isDtw
+              ? `<b>${w.swn}</b><br>%{x}<br>%{y:.1f} ft below GSE<extra></extra>`
+              : `<b>${w.swn}</b><br>%{x}<br>%{y:.1f} ft msl<extra></extra>`,
+            visible,
+          });
+          here.push(tIdx++);
+        }
+        // Recorder-derived bridge (05M001M): manual QA-Good measurements
+        // lapsed 2005-2019 while the county operated a continuous recorder
+        // there; DWR's periodic dataset grades recorder readings
+        // "Questionable" as a class. To avoid a misleading 15-year hole —
+        // and consistent with the county's own hydrograph practice of using
+        // its recorder record — we bridge the gap with the HIGHEST recorder
+        // reading of each calendar month (a static-water-level proxy that
+        // matches overlapping manual readings within ~0.1-2 ft). Months
+        // need >=8 readings to qualify, which isolates the recorder era.
+        // Display-only: excluded from every statistic on this page.
+        if (RECORDER_DERIVED_SWNS.includes(w.swn)) {
+          const byMonth = {};
+          ms.forEach((m) => {
+            if (isGood(m) || m.gwe == null) return;
+            const k = m.d.slice(0, 7);
+            (byMonth[k] = byMonth[k] || []).push(m);
+          });
+          const derived = Object.values(byMonth)
+            .filter((arr) => arr.length >= 8)
+            .map((arr) => arr.reduce((a, b) => (b.gwe > a.gwe ? b : a)))
+            .sort((a, b) => a.d.localeCompare(b.d));
+          if (derived.length >= 12) {
+            traces.push({
+              x: derived.map((m) => m.d), y: derived.map(toYval),
+              type: "scatter", mode: "lines+markers",
+              name: `${w.swn} (recorder-derived)`,
+              line: { color, width: 1.1, dash: "dot" },
+              marker: { size: 3.5, symbol: "circle-open", color },
+              hovertemplate:
+                `<b>${w.swn}</b> recorder-derived<br>%{x}<br>%{y:.1f} ${isDtw ? "ft below GSE" : "ft msl"}` +
+                `<br><span style="font-size:11px;">monthly high of county recorder readings ` +
+                `(DWR-flagged questionable); static-level proxy, excluded from stats</span><extra></extra>`,
+              visible,
+            });
+            here.push(tIdx++);
+          }
+        }
       }
 
       // Per-well thresholds for 2027 RMS wells.
@@ -1521,12 +1578,14 @@
     const ref = WELLS.find((w) => w.swn === rmsSwn);
     if (!ref) { Plotly.purge("scatter"); return; }
     const refMs = MEASUREMENTS[ref.site_code] || [];
-    // index ref measurements by YYYY-MM
+    // index ref measurements by YYYY-MM — QA-Good only, like every other
+    // graph/statistic on the page (questionable readings, e.g. pumping-
+    // influenced recorder data, would distort the pairing and R²).
     const refByMonth = {};
     refMs.forEach((m) => {
-      if (m.gwe == null) return;
+      if (m.gwe == null || !(m.qa && m.qa.toLowerCase().includes("good"))) return;
       const k = (m.d || "").slice(0, 7);
-      if (!refByMonth[k] || m.qa === "Good") refByMonth[k] = m.gwe;
+      if (!refByMonth[k]) refByMonth[k] = m.gwe;
     });
 
     // Use the same well order (and colors) as §5.3 hydrograph
@@ -1543,7 +1602,7 @@
       const ms = MEASUREMENTS[w.site_code] || [];
       const xs = [], ys = [], dates = [];
       ms.forEach((m) => {
-        if (m.gwe == null) return;
+        if (m.gwe == null || !(m.qa && m.qa.toLowerCase().includes("good"))) return;
         const k = (m.d || "").slice(0, 7);
         const refVal = refByMonth[k];
         if (refVal == null) return;
