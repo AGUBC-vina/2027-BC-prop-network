@@ -521,6 +521,48 @@ blank.
 
 ---
 
+## Measurement quality (QA) convention
+
+**Everything on this dashboard is computed and plotted from DWR QA-"Good"
+measurements only.** The DWR periodic dataset grades each measurement
+(`wlm_qa_desc`: Good / Questionable / Missing); readings graded
+Questionable — commonly pumping-influenced levels, which can sit tens of
+feet below the ambient water table — are excluded throughout. This matches
+the convention of the GSA consultant hydrographs and the strawman's own SMC
+methodology ("excluding questionable measurements"), so numbers read off
+this dashboard reconcile with the county's documents rather than
+introducing a second population of readings.
+
+The convention applies uniformly to:
+
+- §5.3 hydrograph traces (every well, every polygon)
+- §5.3 LML trigger-frequency statistics
+- §5.4 representativeness scatter pairs and R²
+- MT / MO / IM threshold work and the AGWL Mirror
+  (`scripts/compute_thresholds.py`)
+- Well-popup "current" readings (latest QA-Good measurement; if a well
+  ever had no Good record at all it would fall back to the latest reading
+  labeled with its grade — currently no network well needs the fallback)
+
+**One flagged exception — the recorder-derived bridge at 22N01W05M001M.**
+Manual (Good-graded) measurements at this well lapsed from 2005 to 2019
+while the county operated a continuous recorder there, and DWR's dataset
+grades recorder readings Questionable *as a class* — so a Good-only trace
+would show a misleading 15-year hole at a well the county's own hydrographs
+show as continuously monitored. The §5.3 hydrograph therefore bridges the
+gap with a clearly-flagged dotted **"(recorder-derived)"** series: the
+**highest recorder reading in each calendar month** (a static-water-level
+proxy — the most-recovered level, closest to what a manual tape would
+catch), for months with ≥ 8 readings (which isolates the recorder era,
+141 months from 2008-03 to 2019-12). Where the recorder era overlaps
+manual Good readings, the proxy matches them within 0.1–2 ft. The series
+is display-only: it is excluded from every statistic, and it is a
+documented derivation from the public DWR record — not a reproduction of
+any consultant figure. Wells using the bridge are listed in
+`RECORDER_DERIVED_SWNS` in `js/main.js`.
+
+---
+
 ## Drought shading (§5.3 hydrograph)
 
 The §5.3 hydrograph shades **Dry** and **Critical** water years behind the
