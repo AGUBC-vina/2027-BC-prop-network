@@ -38,10 +38,11 @@ Built from `BC Network 2026 v8.xlsx`.
 > (`21N01E10B003M`, `21N02E32E001M`) are flagged in popups and the §5.3
 > table. The 6 Chico supplementals remain monitored but unthresholded.
 >
-> **Strawman overlay (added 2026-07-07):** the 5 proposed **LML
-> polygons** (non-regulatory Local Management Levels for GDE-sensitive
-> areas, explored with a MO − 0…30 ft slider in §5.3). See "Strawman
-> overlay" below.
+> **Strawman overlay (added 2026-07-07, expanded 2026-07-20):** the 14
+> proposed **LML polygons** (non-regulatory Local Management Levels for
+> GDE-sensitive areas, explored with a MO − 0…30 ft slider in §5.3) —
+> 5 designated in the 6/18/2026 GWL Strawman plus 9 added in the revised
+> strawman (under discussion). See "Strawman overlay" below.
 >
 > See "Source 2" below and PROJECT_NOTES for full history.
 
@@ -641,23 +642,47 @@ actions already in the GSP; it would **not** define an undesirable
 result. The memo's discussion starting point is an LML **10–20 ft
 below the applicable MO**.
 
-The strawman designates **five 2027 RMS wells** — the shallow RMS wells
-identified as representing regional shallow groundwater conditions in
-GDE-sensitive areas (Sacramento River corridor + Durham area):
+**Fourteen 2027 RMS wells** are now identified for LMLs, in two tiers:
 
-| Polygon / well | Mgmt area | MO (ft msl) | MO − 15 ft |
-|---|---|---|---|
-| `23N01W09E001M` | North | 135 | 120 |
-| `23N01W27L001M` | North | 121 | 106 |
-| `23N01W36P001M` | North | 108 | 93 |
-| `22N01E20K001M` | North (well physically in Chico mgmt area) | 115 | 100 |
-| `21N02E32E001M` | South | 91 | 76 |
+- **5 wells designated in the original GWL Strawman (6/18/2026)** — the
+  shallow RMS wells identified as representing regional shallow
+  groundwater conditions in GDE-sensitive areas (Sacramento River
+  corridor + Durham area).
+- **9 wells added in the revised strawman** (under discussion,
+  July 2026).
+
+| Polygon / well | Mgmt area | Well depth (ft) | MO (ft msl) | MO − 15 ft | Source |
+|---|---|---:|---:|---:|---|
+| `23N01W09E001M` | North | 110 | 135 | 120 | GWL Strawman 6/18/2026 |
+| `23N01W27L001M` | North | 102 | 121 | 106 | GWL Strawman 6/18/2026 |
+| `23N01W36P001M` | North | 165 | 108 | 93 | GWL Strawman 6/18/2026 |
+| `22N01E20K001M` | North (well physically in Chico mgmt area) | 110 | 115 | 100 | GWL Strawman 6/18/2026 |
+| `21N02E32E001M` | South | 184 | 91 | 76 | GWL Strawman 6/18/2026 |
+| `23N02W25C001M` | North | 243 | 130 | 115 | revised strawman |
+| `22N01W05M001M` | North | 200 | 115 | 100 | revised strawman |
+| `23N01E29P002M` | North | 265 | 127 | 112 | revised strawman |
+| `21N01E10B003M` | South | 525 | 64 | 49 | revised strawman |
+| `21N01E27D001M` | South | 112 | 84 | 69 | revised strawman |
+| `20N01E02H003M` | South | 201 | 73 | 58 | revised strawman |
+| `20N02E24C001M` | South | 155 | 77 | 62 | revised strawman |
+| `20N02E09G001M` | South | 202 | 87 | 72 | revised strawman |
+| `20N03E33L001M` | South | 101 | 87 | 72 | revised strawman |
+
+The well-depth column is shown because completion depth bears on what an
+LML at a given well is measuring: the original five are relatively
+shallow completions selected as proxies for the shallow groundwater
+GDEs use, while several of the revised-strawman additions are
+substantially deeper completions. (MO values are the dashboard's
+displayed MO — 2022 GSP for carryover wells, county Strawman Table 3
+for wells new to the 2027 network.)
 
 Dashboard features:
 
-- **§5.2 map toggle** "Proposed LML polygons (strawman)" — dark-cyan
-  dashed outline over the five cells.
-- **§5.3 LML slider** (visible only when one of the five polygons is
+- **§5.2 map toggle** "Proposed LML polygons (strawman + revised)" —
+  dark-cyan outlines over the fourteen cells: heavier long-dash for the
+  original strawman five, lighter short-dash for the revised-strawman
+  nine (see map legend).
+- **§5.3 LML slider** (visible only when one of the fourteen polygons is
   selected) — explores LML = MO − 0…30 ft in 5-ft steps, defaulting to
   15 ft (midpoint of the memo's 10–20 ft starting range). The
   hydrograph draws the proposed LML line at the slider value.
@@ -791,6 +816,7 @@ state.
 | Vina Subbasin boundary | DWR ArcGIS REST i08 B118 | `Basin_Subbasin_Number='5-021.57'` |
 | MT / MO / IM-2027 thresholds | 2022 Vina GSP (for the 12 carryover wells) + county Strawman Table 3 (for the 17 new wells), cross-checked by the dashboard's AGWL Mirror | see "MT / MO / IM-2027 threshold methodology" above |
 | Proposed LML designations (5 RMS wells) + proposed MT/MO/IM (Table 3) | Vina GSA GWL Strawman memo, 2026-06-18 ("Consideration of a Strawman Proposal: Approach to Addressing the Groundwater Level Sustainability Indicator...", Attachment A) | https://www.vinagsa.org/periodic-evaluation-supporting-documents |
+| Additional proposed LML designations (9 RMS wells) | Revised GWL Strawman (under discussion, July 2026) | stakeholder process — not yet posted |
 | Water-year-type drought shading (§5.3) | DWR Sacramento Valley 40-30-30 Water Year Index (WSIHIST), pulled by `scripts/fetch_wy_index.py` | https://cdec.water.ca.gov/reportapp/javareports?name=WSIHIST |
 
 DWR refresh stamp is shown in the page header — it comes from

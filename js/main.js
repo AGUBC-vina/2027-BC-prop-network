@@ -52,20 +52,42 @@
   }
 
   /* -------------- strawman overlays (Vina GSA memo, 2026-06-18) ---------- */
-  // The 5 RMS wells the GWL Strawman proposes for non-regulatory Local
-  // Management Levels (LMLs) in GDE-sensitive areas — the shallow RMS wells
-  // identified as representing regional shallow groundwater conditions.
+  // RMS wells proposed for non-regulatory Local Management Levels (LMLs) in
+  // GDE-sensitive areas, in two tiers:
+  //   - LML_STRAWMAN_SWNS: the 5 wells designated in the original GWL
+  //     Strawman memo (6/18/2026) — the shallower completions identified as
+  //     representing regional shallow groundwater conditions.
+  //   - LML_REV_SWNS: 9 wells added in the revised strawman (under
+  //     discussion, 2026-07).
   // LML = MO minus an offset; the memo's discussion starting point is
   // 10-20 ft below MO, and the §5.3 slider explores 0-30 ft in 5-ft steps.
   // Reaching an LML would trigger investigation and adaptive management,
   // NOT an undesirable result. Nothing here is adopted.
-  const LML_SWNS = [
+  const LML_STRAWMAN_SWNS = [
     "23N01W09E001M",  // North — Sacramento River corridor
     "23N01W27L001M",  // North
     "23N01W36P001M",  // North
     "22N01E20K001M",  // North network (well physically in Chico mgmt area)
     "21N02E32E001M",  // South — Durham area
   ];
+  const LML_REV_SWNS = [
+    "23N02W25C001M",  // North
+    "22N01W05M001M",  // North
+    "23N01E29P002M",  // North
+    "21N01E10B003M",  // South
+    "21N01E27D001M",  // South
+    "20N01E02H003M",  // South
+    "20N02E24C001M",  // South
+    "20N02E09G001M",  // South
+    "20N03E33L001M",  // South
+  ];
+  const LML_SWNS = [...LML_STRAWMAN_SWNS, ...LML_REV_SWNS];
+  // Tier label for UI text: "strawman 6/18/2026" | "revised strawman" | null.
+  function lmlTierLabel(swn) {
+    if (LML_STRAWMAN_SWNS.includes(swn)) return "strawman 6/18/2026";
+    if (LML_REV_SWNS.includes(swn)) return "revised strawman";
+    return null;
+  }
   const LML_COLOR = "#00838f";   // dark cyan — LML line + polygon highlight
   // Current LML slider offset (ft below MO). Default 15 = midpoint of the
   // memo's suggested 10-20 ft starting range.
@@ -507,11 +529,12 @@
     const inheritNote = w.carryover_from
       ? `<div style="margin-top:4px;color:#c25a00;font-size:11.5px;"><b>Note:</b> MT/MO/IM inherited from <code>${w.carryover_from}</code>, the 2022 GSP RMS at this same lat/lng (different completion depth).</div>`
       : "";
-    // Proposed-LML note for the 5 strawman-designated wells. The value
+    // Proposed-LML note for the 14 LML-designated wells (tier-labeled:
+    // original strawman 5 vs revised-strawman 9). The value
     // follows the §5.3 slider offset — popup content is a function, so it
     // recomputes on every open.
     const lmlNote = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn) && w.mo_ft != null)
-      ? `<div style="margin-top:4px;color:${LML_COLOR};font-size:11.5px;"><b>Proposed LML polygon (strawman 6/18/2026):</b> LML at MO &minus; ${lmlOffsetFt} ft = ${(w.mo_ft - lmlOffsetFt).toFixed(0)} ft msl. Non-regulatory trigger for GDE-sensitive areas — explore the offset with the §5.3 slider.</div>`
+      ? `<div style="margin-top:4px;color:${LML_COLOR};font-size:11.5px;"><b>Proposed LML polygon (${lmlTierLabel(w.swn)}):</b> LML at MO &minus; ${lmlOffsetFt} ft = ${(w.mo_ft - lmlOffsetFt).toFixed(0)} ft msl. Non-regulatory trigger for GDE-sensitive areas — explore the offset with the §5.3 slider.</div>`
       : "";
     // Per-well AGWL derivation for the 17 Strawman Table 3 wells: the
     // well's own Feb-April average GWL (the Mirror methodology's input)
@@ -844,20 +867,31 @@
     $("#picker-basemap").addEventListener("change", (e) => setBasemap(e.target.value));
   }
 
-  // Overlay outlining the 5 polygons the strawman proposes for Local
-  // Management Levels. Non-interactive so clicks fall through to the base
-  // polygon (selection keeps working); drawn in polygonsPane, added after
-  // the base cells so it renders above them.
+  // Overlay outlining the 14 polygons proposed for Local Management Levels,
+  // styled by tier: the original strawman 5 get the heavier long-dash
+  // outline; the 9 revised-strawman additions get a lighter short-dash so
+  // the two tiers stay visually distinguishable on the map (see legend).
+  // Non-interactive so clicks fall through to the base polygon (selection
+  // keeps working); drawn in polygonsPane, added after the base cells so it
+  // renders above them.
   function buildLmlLayer() {
     const layer = L.layerGroup();
     RMS_POLYGONS.forEach((poly) => {
       if (!LML_SWNS.includes(poly.rms_well_swn)) return;
-      layer.addLayer(L.polygon(poly.rings, {
-        pane: "polygonsPane",
-        color: LML_COLOR, weight: 3.5, dashArray: "8,5", opacity: 0.95,
-        fill: true, fillColor: LML_COLOR, fillOpacity: 0.10,
-        interactive: false,
-      }));
+      const isOriginal = LML_STRAWMAN_SWNS.includes(poly.rms_well_swn);
+      layer.addLayer(L.polygon(poly.rings, isOriginal
+        ? {
+            pane: "polygonsPane",
+            color: LML_COLOR, weight: 3.5, dashArray: "8,5", opacity: 0.95,
+            fill: true, fillColor: LML_COLOR, fillOpacity: 0.10,
+            interactive: false,
+          }
+        : {
+            pane: "polygonsPane",
+            color: LML_COLOR, weight: 2, dashArray: "2,6", opacity: 0.8,
+            fill: true, fillColor: LML_COLOR, fillOpacity: 0.05,
+            interactive: false,
+          }));
     });
     return layer;
   }
@@ -1001,7 +1035,7 @@
     $("#poly-header-title").textContent = headerTitle;
     $("#poly-header-meta").textContent = `${wellsInside.length} well${wellsInside.length === 1 ? "" : "s"} in zone · ${poly.area_acres.toLocaleString()} acres`;
     const lmlCallout = (!poly.is_aggregate && LML_SWNS.includes(poly.rms_well_swn))
-      ? ` · <span style="color:${LML_COLOR}; font-weight:600;">Proposed LML polygon (strawman 6/18/2026)</span>`
+      ? ` · <span style="color:${LML_COLOR}; font-weight:600;">Proposed LML polygon (${lmlTierLabel(poly.rms_well_swn)})</span>`
       : "";
     $("#poly-header-smc").innerHTML = `<strong>2027 GWL RMS well${rmsList.includes(",") ? "s" : ""}:</strong> ${rmsList}${lmlCallout}`;
 
@@ -1028,7 +1062,7 @@
   }
 
   /* -------------- §5.3 proposed-LML widget (strawman 6/18/2026) --------- */
-  // The selected polygon's LML well, if the polygon is one of the 5 the
+  // The selected polygon's LML well, if the polygon is one of the 14 the
   // strawman designates. All 5 are single-seed Voronoi cells, so
   // rms_well_swn IS the well; the Chico aggregate is not an LML polygon.
   function selectedLmlWell() {
@@ -1308,7 +1342,7 @@
           pushLine(w.mt_ft + mtRaiseFt, `MT + ${mtRaiseFt} ft (sensitivity)`,
                    "#ff8c00", "dash");
         }
-        // Proposed LML line (strawman 6/18/2026) — only the 5 designated
+        // Proposed LML line — only the 14 LML-designated
         // wells; level follows the §5.3 LML slider (MO minus offset).
         if (LML_SWNS.includes(w.swn) && w.mo_ft != null) {
           pushLine(w.mo_ft - lmlOffsetFt,
@@ -1474,7 +1508,7 @@
         }
       }
       const lmlPill = (w.is_2027_gwl_rms && LML_SWNS.includes(w.swn))
-        ? ` <span class="pill pill-lml" title="One of the 5 RMS wells the GWL Strawman (6/18/2026) proposes for a non-regulatory Local Management Level in GDE-sensitive areas.">LML proposed</span>`
+        ? ` <span class="pill pill-lml" title="One of the 14 RMS wells proposed for a non-regulatory Local Management Level in GDE-sensitive areas — 5 designated in the GWL Strawman (6/18/2026), 9 added in the revised strawman (under discussion).">LML proposed</span>`
         : "";
       const bcReason = (w.butte_co_reasoning || "").trim();
       // Show BC reasoning for ANY well that has it (not just RMS).
