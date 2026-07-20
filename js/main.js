@@ -920,9 +920,12 @@
     return `${prefix || shorts[0]} ×${group.length}`;
   }
 
-  // Permanent short-name labels for every map pin (all 2027 RMS +
-  // supplemental sites), toggled via #tog-labels. Labels are anchored to
-  // invisible zero-size markers so they don't affect hit-testing.
+  // Permanent short-name labels for 2027 RMS map pins only, toggled via
+  // #tog-labels. Supplemental-only sites are intentionally NOT labeled (they
+  // clutter the map and aren't the network the labels are meant to identify).
+  // A nested pad that includes at least one RMS completion still gets its
+  // pad-level label. Labels are anchored to invisible zero-size markers so
+  // they don't affect hit-testing.
   function buildLabelsLayer() {
     const layer = L.layerGroup();
     const seen = new Set();
@@ -932,7 +935,8 @@
       seen.add(sk);
       const group = siteGroups[sk];
       const hasRms = group.some((g) => g.is_2027_gwl_rms);
-      const markerR = group.length > 1 ? (hasRms ? 11 : 7) : (hasRms ? 9 : 5);
+      if (!hasRms) return;   // RMS pins only — skip supplemental-only sites
+      const markerR = group.length > 1 ? 11 : 9;
       const anchor = L.circleMarker([+group[0].latitude, +group[0].longitude], {
         pane: "wellsPane", radius: 0.1,
         opacity: 0, fillOpacity: 0, weight: 0,
@@ -940,7 +944,7 @@
       });
       anchor.bindTooltip(siteLabelText(group), {
         permanent: true, direction: "right", offset: [markerR + 6, 0],
-        className: hasRms ? "well-label well-label-rms" : "well-label",
+        className: "well-label well-label-rms",
         opacity: 1,
       });
       layer.addLayer(anchor);
