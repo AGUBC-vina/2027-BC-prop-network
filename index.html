@@ -116,9 +116,9 @@
       font-size: 13px;
     }
     .mt-sensitivity-controls input[type="range"] { vertical-align: middle; }
-    /* Proposed-LML widget (strawman 6/18/2026) — only visible when the
-       selected polygon is one of the 5 the strawman designates for a
-       Local Management Level. */
+    /* Proposed-LML widget — only visible when the selected polygon is one
+       of the 14 proposed for a Local Management Level (5 in the 6/18/2026
+       strawman + 9 in the revised strawman). */
     .lml-controls {
       display: flex; flex-wrap: wrap; align-items: center;
       gap: 8px 18px; margin: 6px 0 14px;
@@ -365,7 +365,7 @@
       <label><input type="checkbox" id="tog-supp" checked> Show supplemental wells</label>
       <label><input type="checkbox" id="tog-labels"> Show well name labels</label>
       <label><input type="checkbox" id="tog-domestic"> Show domestic wells</label>
-      <label><input type="checkbox" id="tog-lml"> Proposed LML polygons (strawman)</label>
+      <label><input type="checkbox" id="tog-lml"> Proposed LML polygons (strawman + revised)</label>
       <label><input type="checkbox" id="tog-gde"> ESA GDE areas</label>
       <label>Scenario:&nbsp;
         <select id="gde-scenario">
@@ -390,6 +390,7 @@
       <span class="legend-chip"><span class="legend-box" style="background: rgba(224,123,31,0.18); border-color: var(--chico);"></span>02-Vina-Chico polygon</span>
       <span class="legend-chip"><span class="legend-box" style="background: rgba(44,160,44,0.18); border-color: var(--south);"></span>03-Vina-South polygon</span>
       <span class="legend-chip"><span class="legend-box" style="background: rgba(0,131,143,0.12); border: 2px dashed #00838f;"></span>Proposed LML polygon (strawman 6/18/2026)</span>
+      <span class="legend-chip"><span class="legend-box" style="background: rgba(0,131,143,0.06); border: 2px dotted #00838f;"></span>Proposed LML polygon (revised strawman)</span>
     </div>
   </section>
 
@@ -411,7 +412,9 @@
       MT / MO / IM-2027 threshold lines are shown for every 2027
       RMS well — dashed where the 2022 GSP values carried forward, dotted
       where the county's proposed Strawman Table 3 values (6/18/2026 memo)
-      apply. The 5 proposed LML polygons additionally get a
+      apply. The 14 proposed LML polygons (5 designated in the 6/18/2026
+      GWL Strawman + 9 added in the revised strawman, under discussion)
+      additionally get a
       <span style="color:#00838f; font-weight:600;">proposed LML line</span>
       driven by the slider below.
     </div>
@@ -452,13 +455,14 @@
       </label>
     </div>
 
-    <!-- Proposed-LML widget (strawman 6/18/2026). Hidden unless the selected
-         polygon is one of the 5 the strawman designates for a non-regulatory
-         Local Management Level. Slider explores LML = MO minus 0-30 ft in
-         5-ft steps (memo's discussion starting point: 10-20 ft below MO). -->
+    <!-- Proposed-LML widget. Hidden unless the selected polygon is one of
+         the 14 proposed for a non-regulatory Local Management Level (5 in
+         the 6/18/2026 strawman + 9 in the revised strawman). Slider explores
+         LML = MO minus 0-30 ft in 5-ft steps (memo's discussion starting
+         point: 10-20 ft below MO). -->
     <div class="lml-controls" id="lml-controls" style="display:none;">
       <label style="display:flex; align-items:center; gap:8px;">
-        <span style="font-weight:600; color:#00695c;">Proposed LML (strawman):</span>
+        <span style="font-weight:600; color:#00695c;">Proposed LML:</span>
         <span>MO&nbsp;&minus;</span>
         <input type="range" id="lml-offset-slider" min="0" max="30" step="5" value="15"
                style="width:200px;">
@@ -467,10 +471,11 @@
       <span id="lml-trigger-stats" style="font-size:12.5px; color:#37474f;"></span>
       <span id="lml-gde-stats" style="flex-basis:100%; font-size:12.5px; color:#1b5e20; padding:6px 8px; background:#eef6ef; border-left:3px solid #1f8f4e; border-radius:3px;"></span>
       <span style="flex-basis:100%; font-size:11px; color:#607d8b;">
-        Non-regulatory management trigger proposed for GDE-sensitive areas in the
-        GWL Strawman (Vina GSA memo, 6/18/2026) — a level below the MO that would
-        prompt investigation and adaptive management, not an undesirable-result
-        criterion. Nothing here is adopted.
+        Non-regulatory management trigger proposed for GDE-sensitive areas —
+        a level below the MO that would prompt investigation and adaptive
+        management, not an undesirable-result criterion. 5 wells designated in
+        the GWL Strawman (Vina GSA memo, 6/18/2026); 9 more added in the
+        revised strawman (under discussion). Nothing here is adopted.
       </span>
     </div>
 
@@ -557,8 +562,8 @@
 <script src="js/basin-boundary.js?v=3"></script>
 <script src="js/domestic-wells-data.js?v=13"></script>
 <script src="js/wy-index-data.js?v=1"></script>
-<script src="js/readme-data.js?v=28"></script>
-<script src="js/main.js?v=31"></script>
+<script src="js/readme-data.js?v=29"></script>
+<script src="js/main.js?v=32"></script>
 <script>
   // Render the bundled README markdown via marked.js. README_MD comes from
   // js/readme-data.js (regenerated by scripts/build_readme_js.py whenever
