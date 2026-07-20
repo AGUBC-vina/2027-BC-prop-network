@@ -892,6 +892,46 @@ errors. Cache-busters: `wy-index-data.js ?v=1` (new), readme-data.js
 `?v=27`, main.js `?v=27`. Branch `per-well-agwl` (stacked on the AGWL
 work, entry 18).
 
+### 20. 2026-07-20 — LML designations expanded 5 → 14 (revised strawman), two-tier
+
+Tovey supplied the list of 14 RMS wells to identify as proposed-LML
+polygons: the original strawman 5 plus 9 added in the **revised
+strawman** (under discussion, July 2026). Mapping from his short names
+was verified programmatically against all 79 wells — 13 matched
+uniquely; "09G01M" (a dropped-zero typo) was confirmed with Tovey as
+`20N02E09G001M` per his ask-don't-infer instruction, and the two-tier
+framing was his explicit choice (AskUserQuestion).
+
+- **Two-tier constants** in `main.js`: `LML_STRAWMAN_SWNS` (5, the
+  6/18/2026 memo designations — the shallower completions) +
+  `LML_REV_SWNS` (9) + union `LML_SWNS` (existing keying unchanged), and
+  `lmlTierLabel(swn)` for UI text.
+  - Original 5: 09E001M, 27L001M, 36P001M, 20K001M, 32E001M.
+  - Rev 9 (N): 23N02W25C001M, 22N01W05M001M, 23N01E29P002M.
+  - Rev 9 (S): 21N01E10B003M, 21N01E27D001M, 20N01E02H003M,
+    20N02E24C001M, 20N02E09G001M, 20N03E33L001M.
+- **Map overlay styled by tier**: original 5 keep the heavier long-dash
+  (weight 3.5, "8,5", fill 0.10); rev-9 get a lighter short-dash
+  (weight 2, "2,6", fill 0.05). Two legend chips. Toggle label now
+  "(strawman + revised)".
+- **Tier-aware text**: popup LML note, §5.3 polygon-header callout, and
+  the §5.3 "LML proposed" pill tooltip say which tier a well belongs to;
+  the widget note explains 5-vs-9 provenance. All other LML behavior
+  (slider, hydrograph line, trigger stats, GDE persistence readout) keys
+  off the union and now applies to all 14 polygons.
+- **README**: LML section rewritten — two-tier framing, 14-row table now
+  with a **well-depth column** (values pulled from wells-data, not
+  hand-typed). Depth matters to the tier story: the original 5 are
+  102–184 ft completions; the rev-9 are median ~201 ft but NOT uniformly
+  deeper (33L001M 101 ft, 27D001M 112 ft are as shallow as the
+  original 5) — so the README lets the depth column speak instead of a
+  blanket "deeper wells" claim. Data-sources row added for the revised
+  strawman ("stakeholder process — not yet posted"; no public URL yet).
+
+No polygon geometry, thresholds, wells-data, or measurement handling
+touched. Cache-busters: main.js `?v=32`, readme-data.js `?v=29`.
+Branch `lml-14`.
+
 ---
 
 ## Key methodological decisions
