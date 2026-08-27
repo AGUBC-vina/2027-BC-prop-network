@@ -444,11 +444,15 @@
   const RECORDER_DERIVED_SWNS = ["22N01W05M001M"];
 
   const BASEMAPS = {
+    // Esri Light Gray Canvas. Replaced CARTO 2026-08-26 — CARTO now stamps
+    // "API KEY REQUIRED" across every tile served without a key. 'labels' is the
+    // matching transparent place-name layer; setBasemap() pairs the two.
     "carto": {
-      url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      labels: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
       options: {
-        maxZoom: 19, subdomains: "abcd",
-        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OSM',
+        maxZoom: 19, maxNativeZoom: 16,
+        attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, NGA',
       },
     },
     "osm": {
@@ -476,8 +480,13 @@
     if (!map) return;
     if (basemapLayer) map.removeLayer(basemapLayer);
     const b = BASEMAPS[key] || BASEMAPS.carto;
-    basemapLayer = L.tileLayer(b.url, b.options).addTo(map);
-    basemapLayer.bringToBack();
+    const base = L.tileLayer(b.url, b.options);
+    basemapLayer = b.labels
+      ? L.layerGroup([base, L.tileLayer(b.labels, b.options)])
+      : base;
+    basemapLayer.addTo(map);
+    if (basemapLayer.bringToBack) basemapLayer.bringToBack();
+    else base.bringToBack();
   }
 
   // Look up "is this well's location inside the Chico mgmt area polygon"
