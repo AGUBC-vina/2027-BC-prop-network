@@ -5,6 +5,8 @@ network in the Vina Subbasin (DWR B118 5-021.57), Butte County, California.
 
 Built from `BC Network 2026 v8.xlsx`.
 
+> **Merged site (2026-09-04).** This dashboard and the change-in-storage dashboard are combined into one page for Vina GSA staff at https://agubc-vina.github.io/2027-unified-vina-dashboard/ (thresholds from the 2026-08-12 joint board packet; change in storage on hand measurements with storage coefficient 0.10 and SVSim specific yield as a sensitivity case). This dashboard stays as built.
+
 > The current state is **29 RMS wells across 26 polygons**:
 >
 > - **13 North** Voronoi cells. Three of the 13 RMS wells
