@@ -46,7 +46,7 @@ Built from `BC Network 2026 v8.xlsx`.
 > 5 designated in the 6/18/2026 GWL Strawman plus 9 added in the revised
 > strawman (under discussion). See "Strawman overlay" below.
 >
-> See "Source 2" below and PROJECT_NOTES for full history.
+> See "Source 2" below.
 
 - **§5.2** — Interactive Leaflet map (basin boundary, 26 polygons,
   all 79 wells with layer toggles for 2027 RMS / supplemental / domestic
@@ -271,8 +271,6 @@ The total is within rounding of 184,400 ac (the Vina Subbasin).
 
 ## MT / MO / IM-2027 threshold methodology
 
-> **Standalone memo.** A self-contained methodology explainer lives at [`analysis/methodology_mt_mo_im.md`](analysis/methodology_mt_mo_im.md). The full three-variant spring-window sensitivity comparison that informed the staff selection of Feb–April is at [`analysis/agwl_window_comparison.md`](analysis/agwl_window_comparison.md). The summary below is in sync with both.
-
 The dashboard shows Sustainable Management Criteria (SMC) threshold lines on
 every 2027 RMS well's hydrograph. Values come from one of two sources, both
 expressed as **groundwater elevation in ft msl** (not depth-below-RPE):
@@ -431,10 +429,9 @@ Three definitions of "average spring groundwater level" were tested:
 All three produce headline dry-well counts within 9 wells of each
 other (430–438), with per-well MTs clustering within a few feet
 across variants. Staff selected the **Feb–April** definition for the
-2027 RMS network on 2026-05-21. The full sensitivity comparison —
+2027 RMS network on 2026-05-21. The full sensitivity comparison,
 including per-zone offsets, per-well MTs, and a statistical note on
-the three approaches — is in `analysis/agwl_window_comparison.md`,
-with a standalone methodology memo at `analysis/methodology_mt_mo_im.md`.
+the three approaches, is available from AGUBC on request.
 
 #### How to read the dry-well count
 
